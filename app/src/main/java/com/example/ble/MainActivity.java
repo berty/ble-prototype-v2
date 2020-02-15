@@ -17,10 +17,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.text.method.ScrollingMovementMethod;
-import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ListAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -33,24 +39,42 @@ public class MainActivity extends AppCompatActivity {
     private int[] permissionsRequestCode = { BLUETOOTH, BLUETOOTH_ADMIN, ACCESS_FINE_LOCATION };
     private boolean permissions[] = {false, false, false};
     private BluetoothAdapter bluetoothAdapter;
-    private TextView log;
+    private ArrayList<BluetoothDevice> devices;
+    private ListView scanList;
+    //private ArrayAdapter scanListAdapter;
+    private ScanListAdapter scanListAdapter;
     private Handler handler;
+
+    private class ScanListAdapter extends ArrayAdapter<BluetoothDevice> {
+
+        public ScanListAdapter(Context context, int resource, ArrayList<BluetoothDevice> devices) {
+            super(context, resource, devices);
+        }
+
+        ArrayList<BluetoothAdapter> devices;
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                convertView = LayoutInflater.from(getContext()).inflate(android.R.layout.simple_list_item_1, parent, false);
+            }
+            TextView textView = convertView.findViewById(android.R.id.text1);
+            textView.setText("hello");
+            return convertView;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        log = findViewById(R.id.log_textView);
-        log.setMovementMethod(new ScrollingMovementMethod());
+        devices = new ArrayList<>();
+        scanList = findViewById(R.id.scan_listView);
+        scanListAdapter = new ScanListAdapter(this, android.R.layout.simple_list_item_1 , devices);
+        scanList.setAdapter(scanListAdapter);
 
-        handler = new Handler(Looper.getMainLooper()) {
-            @Override
-            public void handleMessage(Message input) {
-                String str = (String) input.obj;
-                addLogText("mainHandler: " + str);
-            }
-        };
+        handler = new Handler(Looper.getMainLooper());
 
         /* Check if BLE permissions are granted
            Visit : https://developer.android.com/training/permissions/requesting#perm-check
@@ -80,7 +104,6 @@ public class MainActivity extends AppCompatActivity {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, ENABLE_BT_REQUEST);
         }
-        addLogText("Hello world!");
     }
 
     private boolean hasPermission(String permission) {
@@ -131,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
             if (device != null && device.getName() != null)
-                addLogText(device.getName());
+                addScanEntry(device);
         }
     };
 
@@ -142,7 +165,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void addLogText(String str) {
-        log.append(str + "\n");
+    private void addScanEntry(BluetoothDevice device) {
+        devices.add(device);
+        scanListAdapter.notifyDataSetChanged();
     }
 }

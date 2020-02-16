@@ -169,4 +169,10 @@ public class MainActivity extends AppCompatActivity {
         devices.add(device);
         scanListAdapter.notifyDataSetChanged();
     }
+
+    public void startDeviceActivity(View view) {
+        Intent intent = new Intent(this, DeviceActivity.class);
+        intent.putExtra();
+        startActivity(intent);
+    }
 }

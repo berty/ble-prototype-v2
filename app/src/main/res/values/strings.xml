@@ -6,4 +6,6 @@
     <string name="actions_label">Actions</string>
     <string name="scan_off_button">Scan off</string>
     <string name="ble_permissions_explain">BLE communication allow you to find nearby phones</string>
+    <string name="device_services">Device services</string>
+    <string name="device_characteristics">Device characteristic</string>
 </resources>

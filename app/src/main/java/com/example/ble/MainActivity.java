@@ -20,6 +20,7 @@ import android.text.method.ScrollingMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -41,9 +42,9 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter bluetoothAdapter;
     private ArrayList<BluetoothDevice> devices;
     private ListView scanList;
-    //private ArrayAdapter scanListAdapter;
     private ScanListAdapter scanListAdapter;
     private Handler handler;
+    private AdapterView.OnItemClickListener messageClickHandler;
 
     private class ScanListAdapter extends ArrayAdapter<BluetoothDevice> {
 
@@ -54,12 +55,13 @@ public class MainActivity extends AppCompatActivity {
         ArrayList<BluetoothAdapter> devices;
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
+        public View getView(int position, View convertView, ViewGroup container) {
             if (convertView == null) {
-                convertView = LayoutInflater.from(getContext()).inflate(android.R.layout.simple_list_item_1, parent, false);
+                convertView = getLayoutInflater().inflate(android.R.layout.simple_list_item_1,
+                        container, false);
             }
             TextView textView = convertView.findViewById(android.R.id.text1);
-            textView.setText("hello");
+            textView.setText(getItem(position).getName());
             return convertView;
         }
     }
@@ -73,6 +75,17 @@ public class MainActivity extends AppCompatActivity {
         scanList = findViewById(R.id.scan_listView);
         scanListAdapter = new ScanListAdapter(this, android.R.layout.simple_list_item_1 , devices);
         scanList.setAdapter(scanListAdapter);
+
+
+        messageClickHandler = new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent(getApplicationContext(), DeviceActivity.class);
+                //intent.putExtra("ble.device", parent.getItemAtPosition(position));
+                startActivity(intent);
+            }
+        };
+        scanList.setOnItemClickListener(messageClickHandler);
 
         handler = new Handler(Looper.getMainLooper());
 
@@ -168,11 +181,5 @@ public class MainActivity extends AppCompatActivity {
     private void addScanEntry(BluetoothDevice device) {
         devices.add(device);
         scanListAdapter.notifyDataSetChanged();
-    }
-
-    public void startDeviceActivity(View view) {
-        Intent intent = new Intent(this, DeviceActivity.class);
-        intent.putExtra();
-        startActivity(intent);
     }
 }

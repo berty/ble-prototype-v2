@@ -73,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
 
         devices = new ArrayList<>();
         scanList = findViewById(R.id.scan_listView);
-        scanListAdapter = new ScanListAdapter(this, android.R.layout.simple_list_item_1 , devices);
+        scanListAdapter = new ScanListAdapter(this,
+                android.R.layout.simple_list_item_1 , devices);
         scanList.setAdapter(scanListAdapter);
 
 
@@ -81,7 +82,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(getApplicationContext(), DeviceActivity.class);
-                //intent.putExtra("ble.device", parent.getItemAtPosition(position));
+                intent.putExtra("ble.device",
+                        (BluetoothDevice)parent.getItemAtPosition(position));
                 startActivity(intent);
             }
         };
@@ -111,7 +113,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Check if BLE is enabled and ask user to enable it if needed
         // API level 18 minimum required for the BluetoothManager class
-        final BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
         if ((bluetoothAdapter == null) || (!bluetoothAdapter.isEnabled())) {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -129,7 +132,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestPermission(int i) {
         if (ActivityCompat.shouldShowRequestPermissionRationale(this, permissionStrings[i])) {
-            Toast.makeText(this, R.string.ble_permissions_explain, Toast.LENGTH_LONG);
+            Toast.makeText(this, R.string.ble_permissions_explain,
+                    Toast.LENGTH_LONG);
         }
         ActivityCompat.requestPermissions(this, new String[]{permissionStrings[i]},
                 permissionsRequestCode[i]);
@@ -166,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter.LeScanCallback leScanCallBack = new BluetoothAdapter.LeScanCallback() {
         @Override
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-            if (device != null && device.getName() != null)
+            if (device != null && device.getName() != null && devices.indexOf(device) == -1)
                 addScanEntry(device);
         }
     };

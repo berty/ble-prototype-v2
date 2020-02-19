@@ -17,6 +17,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.text.method.ScrollingMovementMethod;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = ScanListAdapter.class.getSimpleName();
     private static final int ENABLE_BT_REQUEST = 1;
     private static String[] permissionStrings = new String[] {Manifest.permission.BLUETOOTH,
             Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.ACCESS_FINE_LOCATION};
@@ -45,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private ScanListAdapter scanListAdapter;
     private Handler handler;
     private AdapterView.OnItemClickListener messageClickHandler;
+    private BleDriver bleDriver = new BleDriver();
 
     private class ScanListAdapter extends ArrayAdapter<BluetoothDevice> {
 
@@ -157,10 +160,11 @@ public class MainActivity extends AppCompatActivity {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                bluetoothAdapter.stopLeScan(leScanCallBack);
+                bleDriver.StopBleDriver();
             }
         }, SCAN_PERIOD);
-        bluetoothAdapter.startLeScan(leScanCallBack);
+        if (!bleDriver.StartBleDriver("localPeerID"))
+            Log.e(TAG, "bleScanStart: failed to start ble");
     }
 
     public void bleScanStop(View view) {

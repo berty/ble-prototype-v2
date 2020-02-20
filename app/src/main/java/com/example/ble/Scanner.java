@@ -32,7 +32,6 @@ public class Scanner extends ScanCallback {
         String errorString;
         boolean scanning = false;
 
-        super.onScanFailed(errorCode);
         switch(errorCode) {
             case SCAN_FAILED_ALREADY_STARTED: errorString = "SCAN_FAILED_ALREADY_STARTED";
                 scanning = true;
@@ -52,23 +51,24 @@ public class Scanner extends ScanCallback {
         }
         Log.e(TAG, "onScanFailed: " + errorString);
         BleDriver.setScanningState(scanning);
+        super.onScanFailed(errorCode);
     }
 
     @Override
     public void onScanResult(int callbackType, ScanResult result) {
-        super.onScanResult(callbackType, result);
         Log.d(TAG, "onScanResult called with result: " + result);
         parseResult(result);
+        super.onScanResult(callbackType, result);
     }
 
     @Override
     public void onBatchScanResults(List<ScanResult> results) {
-        super.onBatchScanResults(results);
         Log.v(TAG, "onBatchScanResult() called with results: " + results);
 
         for (ScanResult result:results) {
             parseResult(result);
         }
+        super.onBatchScanResults(results);
     }
 
     private void parseResult(ScanResult result) {

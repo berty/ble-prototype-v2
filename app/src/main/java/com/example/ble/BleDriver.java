@@ -3,9 +3,12 @@ package com.example.ble;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattServer;
+import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
@@ -20,6 +23,13 @@ import android.util.Log;
 import java.util.Collections;
 import java.util.UUID;
 
+import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_READ;
+import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_WRITE;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_WRITE;
+import static android.bluetooth.BluetoothGattService.SERVICE_TYPE_PRIMARY;
+import static android.content.Context.BLUETOOTH_SERVICE;
+
 public class BleDriver {
     private final String TAG = BleDriver.class.getSimpleName();
 
@@ -28,16 +38,27 @@ public class BleDriver {
     static final UUID WRITER_UUID = UUID.fromString("000CBD77-8D30-4EFF-9ADD-AC5F10C2CC1B");
     static final ParcelUuid P_SERVICE_UUID = new ParcelUuid(SERVICE_UUID);
 
-    private String mLocalPeerID;
-    private Context mContext;
+    private Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
+
+    // GATT service
+    private final BluetoothGattService mService =
+            new BluetoothGattService(SERVICE_UUID, SERVICE_TYPE_PRIMARY);
+    private final BluetoothGattCharacteristic mPeerIDCharacteristic =
+            new BluetoothGattCharacteristic(PEER_ID_UUID, PROPERTY_READ, PERMISSION_READ);
+    private final BluetoothGattCharacteristic mWriterCharacteristic =
+            new BluetoothGattCharacteristic(WRITER_UUID, PROPERTY_WRITE, PERMISSION_WRITE);
+
+    // GATT server
+    private final GattServer mGattServerCallback = new GattServer();
+    private boolean mGattserverState;
 
     // Scanning
     // API level 21
     // Scanner is the implementation of the ScanCallback abstract class
     private ScanFilter mScanFilter = Scanner.buildScanFilter();
     private ScanSettings mScanSettings = Scanner.BuildScanSettings();
-    private Scanner mScanner = new Scanner();
+    private Scanner mScanCallback = new Scanner();
     private BluetoothLeScanner mBluetoothLeScanner;
     private static boolean mScanning;
 
@@ -46,7 +67,7 @@ public class BleDriver {
     // Advertiser is the implementation of the AdvertiseCallback abstract class
     private AdvertiseSettings mAdvertiseSettings = Advertiser.buildAdvertiseSettings();
     private AdvertiseData mAdvertiseData = Advertiser.buildAdvertiseData();
-    private Advertiser mAdvertiser = new Advertiser();
+    private Advertiser mAdvertiseCallback = new Advertiser();
     private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
     private static boolean mAdvertising;
 
@@ -73,7 +94,7 @@ public class BleDriver {
             @SuppressLint("PrivateApi")
             Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
             Application application = (Application) activityThreadClass.getMethod("currentApplication").invoke(null);
-            mContext = application.getApplicationContext();
+            mAppContext = application.getApplicationContext();
         } catch (Exception e) {
             Log.e(TAG, "BleDriver constructor: context not found");
             return ;
@@ -101,7 +122,14 @@ public class BleDriver {
             Log.d(TAG, "StartBleDriver: bluetooth is disabled");
             return false;
         }
-        mLocalPeerID = localPeerID;
+        if (!setupGattService(localPeerID)) {
+            Log.e(TAG, "StartBleDriver() error: setup Gatt service");
+            return false;
+        }
+        if (!setupGattServer()) {
+            Log.e(TAG, "StartBleDriver() error: setup Gatt server");
+            return false;
+        }
         setAdvertising(true);
         setScanning(true);
         mDriverState = true;
@@ -154,15 +182,57 @@ public class BleDriver {
         setAdvertising(false);
     }
 
+    private boolean setupGattService(String localPeerID) {
+        Log.d(TAG, "setupGattService() called");
+        setLocalPeerID(localPeerID);
+        if (((mService.getCharacteristic(PEER_ID_UUID) == null)
+                && !mService.addCharacteristic(mPeerIDCharacteristic)) ||
+                ((mService.getCharacteristic(WRITER_UUID) == null)
+                        && !mService.addCharacteristic(mWriterCharacteristic))) {
+            Log.e(TAG, "setupService() failed: can't add characteristics to service");
+            return false;
+        }
+        return true;
+    }
+
+    // Before adding a new service, we have to check if another service is adding to the server.
+    // We don't check this because we are working with only one service on the server.
+    // If the service can't be added, the BluetoothGattServerCallback#onServiceAdded method will
+    // update de server state.
+    private boolean setupGattServer() {
+        BluetoothManager bluetoothManager;
+
+        Log.d(TAG, "setupGattServer() called");
+        if ((bluetoothManager = (BluetoothManager)mAppContext.getSystemService(BLUETOOTH_SERVICE)) == null) {
+            Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
+            return false;
+        }
+        BluetoothGattServer gattServer = bluetoothManager.openGattServer(mAppContext, mGattServerCallback);
+        if (!gattServer.addService(mService)) {
+            Log.e(TAG, "setupGattServer() error: cannot add a new service");
+            return false;
+        }
+        mGattServerCallback.setBluetoothGattServer(gattServer);
+        return true;
+    }
+
+    public void setGattServerState(boolean state) {
+        mGattserverState = state;
+    }
+
+    public boolean getGattServerState() {
+        return mGattserverState;
+    }
+
     // Android only provides a way to know if startScan has failed so we set the scanning state
     // to true and ScanCallback will set it to false in case of failure.
     private void setScanning(boolean enable) {
         if (enable && !getScanningState()) {
             setScanningState(true);
-            mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanner);
+            mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanCallback);
         } else if (!enable && getScanningState()) {
             setScanningState(false);
-            mBluetoothLeScanner.stopScan(mScanner);
+            mBluetoothLeScanner.stopScan(mScanCallback);
         }
     }
 
@@ -179,9 +249,9 @@ public class BleDriver {
 
     private void setAdvertising(boolean enable) {
         if (enable && !getAdvertisingState()) {
-            mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiser);
+            mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiseCallback);
         } else if (!enable && getAdvertisingState()) {
-            mBluetoothLeAdvertiser.stopAdvertising(mAdvertiser);
+            mBluetoothLeAdvertiser.stopAdvertising(mAdvertiseCallback);
         }
     }
 
@@ -196,10 +266,7 @@ public class BleDriver {
         return mAdvertising;
     }
 
-    private BluetoothGatt connectOnDevice(BluetoothDevice device) {
-        Log.d(TAG, "connectOnDevice: connecting");
-        BluetoothGatt bluetoothGatt = device.connectGatt(mContext, false,
-                bluetoothGattCallback);
-        return bluetoothGatt;
-    }
+    private void setLocalPeerID(String localPeerID) { mPeerIDCharacteristic.setValue(localPeerID); }
+
+    private String getLocalPeerID() { return mPeerIDCharacteristic.getStringValue(0); }
 }

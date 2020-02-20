@@ -30,7 +30,6 @@ public class Advertiser extends AdvertiseCallback {
         String errorString;
         boolean advertising = false;
 
-        super.onStartFailure(errorCode);
         switch (errorCode) {
             case ADVERTISE_FAILED_ALREADY_STARTED: errorString = "ADVERTISE_FAILED_ALREADY_STARTED";
                 advertising = true;
@@ -53,12 +52,13 @@ public class Advertiser extends AdvertiseCallback {
         }
         Log.e(TAG, "onStartFailure: " + errorString);
         BleDriver.setAdvertisingState(advertising);
+        super.onStartFailure(errorCode);
     }
 
     @Override
     public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-        super.onStartSuccess(settingsInEffect);
         Log.d(TAG, "onStartSuccess: advertising started");
         BleDriver.setAdvertisingState(true);
+        super.onStartSuccess(settingsInEffect);
     }
 }

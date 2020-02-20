@@ -153,22 +153,38 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void bleScanStart(final View view) {
+    public void driverOn(final View view) {
+        if (!bleDriver.StartBleDriver("localPeerID"))
+            Log.e(TAG, "bleScanStart: failed to start ble");
+    }
+
+    public void driverOff(final View view) {
+        bleDriver.StopBleDriver();
+    }
+
+    public void scanOn(final View view) {
         // Stops scanning after 10 seconds.
         final long SCAN_PERIOD = 10000;
 
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                bleDriver.StopBleDriver();
+                bleDriver.StopScanning();
             }
         }, SCAN_PERIOD);
-        if (!bleDriver.StartBleDriver("localPeerID"))
-            Log.e(TAG, "bleScanStart: failed to start ble");
+        bleDriver.StartScanning();
     }
 
-    public void bleScanStop(View view) {
-        bluetoothAdapter.stopLeScan(leScanCallBack);
+    public void scanOff(View view) {
+        bleDriver.StopScanning();
+    }
+
+    public void advertiseOn(View view) {
+        bleDriver.StartAdvertising();
+    }
+
+    public void advertiseOff(View view) {
+        bleDriver.StopAdvertising();
     }
 
     private BluetoothAdapter.LeScanCallback leScanCallBack = new BluetoothAdapter.LeScanCallback() {

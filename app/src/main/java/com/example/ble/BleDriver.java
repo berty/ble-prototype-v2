@@ -32,37 +32,25 @@ public class BleDriver {
     private Context mContext;
     private BluetoothAdapter mBluetoothAdapter;
 
-    // API required is level 21 because we call BluetoothLeScanner instead of BluetoothAdapter.startLeScan
-    // Scan
-    private ScanFilter mScanFilter = new ScanFilter.Builder().setServiceUuid(P_SERVICE_UUID).build();
-    private ScanSettings mScanSettings =
-            new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
-    private ScanResults mScanResults = new ScanResults();
+    // Scanning
+    // API level 21
+    // Scanner is the implementation of the ScanCallback abstract class
+    private ScanFilter mScanFilter = Scanner.buildScanFilter();
+    private ScanSettings mScanSettings = Scanner.BuildScanSettings();
+    private Scanner mScanner = new Scanner();
     private BluetoothLeScanner mBluetoothLeScanner;
-    // Advertise
-    private AdvertiseSettings mAdvertiseSettings = new AdvertiseSettings.Builder()
-            .setConnectable(true)
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-            .setTimeout(0)
-            .build();
-    private AdvertiseData mAdvertiseDate = new AdvertiseData.Builder()
-            .setIncludeDeviceName(false)
-            .setIncludeTxPowerLevel(false)
-            .addServiceUuid(BleDriver.P_SERVICE_UUID)
-            .build();
-    private AdvertiseResults mAdvertiseResults = new AdvertiseResults();
-    private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
+    private static boolean mScanning;
 
-    private boolean mScanning;
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
-                @Override
-                public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
-                    Log.d(TAG, "onLeScan: one device found");
-                    connectOnDevice(device);
-                }
-            };
+    // Advertising
+    // API level 21
+    // Advertiser is the implementation of the AdvertiseCallback abstract class
+    private AdvertiseSettings mAdvertiseSettings = Advertiser.buildAdvertiseSettings();
+    private AdvertiseData mAdvertiseData = Advertiser.buildAdvertiseData();
+    private Advertiser mAdvertiser = new Advertiser();
+    private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
+    private static boolean mAdvertising;
+
+    private boolean mDriverState;
 
     private BluetoothGattCallback bluetoothGattCallback =
             new BluetoothGattCallback() {
@@ -101,34 +89,111 @@ public class BleDriver {
     }
 
     public boolean StartBleDriver(String localPeerID) {
-       if (mBluetoothAdapter == null) {
-           Log.d(TAG, "StartBleDriver: no bluetooth adapter found");
-           return false;
-       }
-       if (!mBluetoothAdapter.isEnabled()) {
-           Log.d(TAG, "StartBleDriver: bluetooth is disabled");
-           return false;
-       }
-       setScanning(true);
-       return true;
+        if (mDriverState) {
+            Log.d(TAG, "driver is already on");
+            return false;
+        }
+        if (mBluetoothAdapter == null) {
+            Log.d(TAG, "StartBleDriver: no bluetooth adapter found");
+            return false;
+        }
+        if (!mBluetoothAdapter.isEnabled()) {
+            Log.d(TAG, "StartBleDriver: bluetooth is disabled");
+            return false;
+        }
+        mLocalPeerID = localPeerID;
+        setAdvertising(true);
+        setScanning(true);
+        mDriverState = true;
+        return true;
     }
 
     public void StopBleDriver() {
+        if (!mDriverState) {
+            Log.d(TAG, "driver is already off");
+            return ;
+        }
+        setAdvertising(false);
+        setScanning(false);
+        mDriverState = false;
+    }
+
+    // Method only for test purposes
+    public void StartScanning() {
+        if (mScanning) {
+            Log.d(TAG, "scanning is already on");
+            return ;
+        }
+        setScanning(true);
+    }
+
+    // Method only for test purposes
+    public void StopScanning() {
+        if (!mScanning) {
+            Log.d(TAG, "scanning is already off");
+            return ;
+        }
         setScanning(false);
     }
 
+    // Method only for test purposes
+    public void StartAdvertising() {
+        if (mAdvertising) {
+            Log.d(TAG, "advertising already on");
+            return ;
+        }
+        setAdvertising(true);
+    }
+
+    // Method only for test purposes
+    public void StopAdvertising() {
+        if (!mAdvertising) {
+            Log.d(TAG, "advertising already off");
+            return ;
+        }
+        setAdvertising(false);
+    }
+
+    // Android only provides a way to know if startScan has failed so we set the scanning state
+    // to true and ScanCallback will set it to false in case of failure.
     private void setScanning(boolean enable) {
-        if (enable) {
-            mScanning = true;
-            mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanResults);
-        } else {
-            mScanning = false;
-            mBluetoothLeScanner.stopScan(mScanResults);
+        if (enable && !getScanningState()) {
+            setScanningState(true);
+            mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanner);
+        } else if (!enable && getScanningState()) {
+            setScanningState(false);
+            mBluetoothLeScanner.stopScan(mScanner);
         }
     }
 
-    private void setAdvertising(boolean enable) {
+    public static void setScanningState(boolean state) {
+        mScanning = state;
+    }
 
+    // Return the status of the scanner
+    // true: scanning is enabled
+    // false: scanning is disabled
+    public static boolean getScanningState() {
+        return mScanning;
+    }
+
+    private void setAdvertising(boolean enable) {
+        if (enable && !getAdvertisingState()) {
+            mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiser);
+        } else if (!enable && getAdvertisingState()) {
+            mBluetoothLeAdvertiser.stopAdvertising(mAdvertiser);
+        }
+    }
+
+    public static void setAdvertisingState(boolean state) {
+        mAdvertising = state;
+    }
+
+    // Return the status of the advertiser
+    // true: advertising is enabled
+    // false: advertising is disabled
+    public static boolean getAdvertisingState() {
+        return mAdvertising;
     }
 
     private BluetoothGatt connectOnDevice(BluetoothDevice device) {

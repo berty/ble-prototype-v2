@@ -5,6 +5,7 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.content.Context;
 import android.util.Log;
 
 import java.util.List;
@@ -14,6 +15,14 @@ import java.util.List;
 
 public class Scanner extends ScanCallback {
     private static final String TAG = Scanner.class.getSimpleName();
+
+    private Context mContext;
+    private DeviceManager mDeviceManager;
+
+    public Scanner (Context context, DeviceManager deviceManager) {
+        mContext = context;
+        mDeviceManager = deviceManager;
+    }
 
     static ScanSettings BuildScanSettings() {
         return new ScanSettings.Builder()
@@ -75,15 +84,15 @@ public class Scanner extends ScanCallback {
         Log.v(TAG, "parseResult() called with device: " + result.getDevice());
 
         BluetoothDevice device = result.getDevice();
-        /*PeerDevice peerDevice = DeviceManager.getDeviceFromAddr(device.getAddress());
+        PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
 
         if (peerDevice == null) {
             Log.i(TAG, "parseResult() scanned a new device: " + device.getAddress());
-            peerDevice = new PeerDevice(device);
-            DeviceManager.addDeviceToIndex(peerDevice);
+            peerDevice = new PeerDevice(mContext, device);
+            mDeviceManager.addDevice(peerDevice);
 
             // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
             peerDevice.asyncConnectionToDevice("parseResult()");
-        }*/
+        }
     }
 }

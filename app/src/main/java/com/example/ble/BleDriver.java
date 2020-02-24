@@ -42,6 +42,8 @@ public class BleDriver {
     private Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
 
+    private final DeviceManager mDeviceManager = new DeviceManager();
+
     // GATT service
     private final BluetoothGattService mService =
             new BluetoothGattService(SERVICE_UUID, SERVICE_TYPE_PRIMARY);
@@ -59,7 +61,7 @@ public class BleDriver {
     // Scanner is the implementation of the ScanCallback abstract class
     private ScanFilter mScanFilter = Scanner.buildScanFilter();
     private ScanSettings mScanSettings = Scanner.BuildScanSettings();
-    private Scanner mScanCallback = new Scanner();
+    private Scanner mScanCallback = new Scanner(mAppContext, mDeviceManager);
     private BluetoothLeScanner mBluetoothLeScanner;
     private static boolean mScanning;
 
@@ -147,6 +149,12 @@ public class BleDriver {
         setScanning(false);
         closeGattServer();
         mDriverState = false;
+    }
+
+    // test only
+
+    public String getMACAddress() {
+        return mBluetoothAdapter.getAddress();
     }
 
     // Method only for test purposes

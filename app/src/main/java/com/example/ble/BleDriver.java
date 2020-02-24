@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattServer;
+import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -50,8 +51,8 @@ public class BleDriver {
             new BluetoothGattCharacteristic(WRITER_UUID, PROPERTY_WRITE, PERMISSION_WRITE);
 
     // GATT server
-    private final GattServer mGattServerCallback = new GattServer();
-    private boolean mGattserverState;
+    private BluetoothGattServer mBluetoothGattServer;
+    private boolean mGattServerState;
 
     // Scanning
     // API level 21
@@ -82,6 +83,7 @@ public class BleDriver {
                         Log.d(TAG, "bluetoothGattCallback: device connected");
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, "bluetoothGattCallback: device disconnected");
+                        mAdvertising = true;
                     }
                 }
             };
@@ -143,6 +145,7 @@ public class BleDriver {
         }
         setAdvertising(false);
         setScanning(false);
+        closeGattServer();
         mDriverState = false;
     }
 
@@ -195,33 +198,39 @@ public class BleDriver {
         return true;
     }
 
-    // Before adding a new service, we have to check if another service is adding to the server.
-    // We don't check this because we are working with only one service on the server.
-    // If the service can't be added, the BluetoothGattServerCallback#onServiceAdded method will
-    // update de server state.
+    // After adding a new service, the success of this operation will be given to the callback
+    // BluetoothGattServerCallback#onServiceAdded. It's only after this callback that the server
+    // will be ready.
     private boolean setupGattServer() {
         BluetoothManager bluetoothManager;
 
         Log.d(TAG, "setupGattServer() called");
+        if (mBluetoothGattServer != null)
+            return (true);
         if ((bluetoothManager = (BluetoothManager)mAppContext.getSystemService(BLUETOOTH_SERVICE)) == null) {
             Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
             return false;
         }
-        BluetoothGattServer gattServer = bluetoothManager.openGattServer(mAppContext, mGattServerCallback);
-        if (!gattServer.addService(mService)) {
+        mBluetoothGattServer = bluetoothManager.openGattServer(mAppContext, mBluetoothGattServerCallback);
+        if (!mBluetoothGattServer.addService(mService)) {
             Log.e(TAG, "setupGattServer() error: cannot add a new service");
+            mBluetoothGattServer = null;
             return false;
         }
-        mGattServerCallback.setBluetoothGattServer(gattServer);
         return true;
     }
 
+    private void closeGattServer() {
+        mBluetoothGattServer.close();
+        mBluetoothGattServer = null;
+    }
+
     public void setGattServerState(boolean state) {
-        mGattserverState = state;
+        mGattServerState = state;
     }
 
     public boolean getGattServerState() {
-        return mGattserverState;
+        return mGattServerState;
     }
 
     // Android only provides a way to know if startScan has failed so we set the scanning state
@@ -269,4 +278,16 @@ public class BleDriver {
     private void setLocalPeerID(String localPeerID) { mPeerIDCharacteristic.setValue(localPeerID); }
 
     private String getLocalPeerID() { return mPeerIDCharacteristic.getStringValue(0); }
+
+    private BluetoothGattServerCallback mBluetoothGattServerCallback =
+            new BluetoothGattServerCallback() {
+                @Override
+                public void onServiceAdded(int status, BluetoothGattService service) {
+                    super.onServiceAdded(status, service);
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        Log.e(TAG, "onServiceAdded error: failed to add service " + service);
+                        closeGattServer();
+                    }
+                }
+            };
 }

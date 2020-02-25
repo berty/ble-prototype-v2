@@ -17,11 +17,16 @@ import java.util.List;
 public class PeerDevice {
     private static final String TAG = PeerDevice.class.getSimpleName();
 
+    public static final String ACTION_STATE_CONNECTED = "peerDevice.STATE_CONNECTED";
+    public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
+
     private int mState = BluetoothProfile.STATE_DISCONNECTED;
 
     private Context mContext;
     private BluetoothDevice mBluetoothDevice;
     private BluetoothGatt mBluetoothGatt;
+
+    private Runnable mRunnable;
 
     public PeerDevice(@NonNull Context context, @NonNull BluetoothDevice bluetoothDevice) {
         mContext = context;
@@ -40,9 +45,15 @@ public class PeerDevice {
 
     public boolean asyncConnectionToDevice(String caller) {
         Log.d(TAG, "asyncConnectionToDevice: caller: " + caller);
-        if (mState == BluetoothProfile.STATE_DISCONNECTED) {
-            mBluetoothGatt = mBluetoothDevice.connectGatt(mContext, false,
-                    mGattCallback);
+        if (!isConnected()) {
+            mRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    mBluetoothGatt = mBluetoothDevice.connectGatt(mContext, false,
+                            mGattCallback);
+                }
+            };
+            mRunnable.run();
         }
         return false;
     }
@@ -51,19 +62,23 @@ public class PeerDevice {
         return mState == BluetoothProfile.STATE_CONNECTED;
     }
 
+    public void setState(int state) {
+        mState = state;
+    }
+
     private BluetoothGattCallback mGattCallback =
             new BluetoothGattCallback() {
                 @Override
                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                     super.onConnectionStateChange(gatt, status, newState);
-                    Log.d(TAG, "onConnectionStateChange() called");
+                    Log.d(TAG, "onConnectionStateChange() called in thread " + Thread.currentThread().getName());
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): connected");
-                        mState = BluetoothProfile.STATE_CONNECTED;
+                        setState(BluetoothProfile.STATE_CONNECTED);
                         mBluetoothGatt.discoverServices();
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): disconnected");
-                        mState = BluetoothProfile.STATE_DISCONNECTED;
+                        setState(BluetoothProfile.STATE_DISCONNECTED);
                     } else {
                         Log.e(TAG, "onConnectionStateChange(): unknown state");
                     }

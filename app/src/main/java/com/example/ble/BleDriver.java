@@ -80,7 +80,11 @@ public class BleDriver {
     private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
     private static boolean mAdvertising;
 
-    private boolean mDriverState;
+    private static final int DRIVER_STATE_NOT_INIT = 0;
+    private static final int DRIVER_STATE_INIT = 1;
+    private static final int DRIVER_STATE_STARTED = 2;
+    private static final int DRIVER_STATE_STOPPED = 3;
+    private int mDriverState = DRIVER_STATE_NOT_INIT;
 
     private BluetoothGattCallback bluetoothGattCallback =
             new BluetoothGattCallback() {
@@ -115,24 +119,34 @@ public class BleDriver {
         } else {
             Log.d(TAG, "BleDriver constructor: bluetooth is supported on this hardware platform");
         }
-        mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
-        mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
+        if ((mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner()) == null) {
+            Log.i(TAG, "BleDriver constructor: scanning mode not supported");
+        }
+        if ((mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser()) == null) {
+            Log.i(TAG, "BleDriver constructor: advertising mode not supported");
+        }
         // is the right place? Context must not be null!
         JavaToGo.setContext(mAppContext);
         mScanCallback = new Scanner(mAppContext, mDeviceManager);
+        // Init ok, set driver to the ready state
+        mDriverState = DRIVER_STATE_INIT;
     }
 
     public boolean StartBleDriver(String localPeerID) {
-        if (mDriverState) {
-            Log.d(TAG, "driver is already on");
+        Log.d(TAG, "StartBleDriver() called in thread " + Thread.currentThread().getName());
+        if ((mDriverState != DRIVER_STATE_INIT) && (mDriverState != DRIVER_STATE_STOPPED)) {
+            Log.e(TAG, "StartBleDriver(): BLE driver isn't init so it can't be started");
+        }
+        if (mDriverState == DRIVER_STATE_STARTED) {
+            Log.d(TAG, "StartBleDriver(): driver is already on");
             return false;
         }
         if (mBluetoothAdapter == null) {
-            Log.d(TAG, "StartBleDriver: no bluetooth adapter found");
+            Log.d(TAG, "StartBleDriver(): no bluetooth adapter found");
             return false;
         }
         if (!mBluetoothAdapter.isEnabled()) {
-            Log.d(TAG, "StartBleDriver: bluetooth is disabled");
+            Log.d(TAG, "StartBleDriver(): device's bluetooth module is disabled");
             return false;
         }
         if (!setupGattService(localPeerID)) {
@@ -146,20 +160,21 @@ public class BleDriver {
         mAppContext.registerReceiver(mBroadcastReceiver, makeIntentFilter());
         setAdvertising(true);
         setScanning(true);
-        mDriverState = true;
+        mDriverState = DRIVER_STATE_STARTED;
+        Log.d(TAG, "StartBleDriver: init completed");
         return true;
     }
 
     public void StopBleDriver() {
-        if (!mDriverState) {
-            Log.d(TAG, "driver is already off");
+        if (mDriverState != DRIVER_STATE_STARTED) {
+            Log.d(TAG, "driver isn't started");
             return ;
         }
         mAppContext.unregisterReceiver(mBroadcastReceiver);
         setAdvertising(false);
         setScanning(false);
         closeGattServer();
-        mDriverState = false;
+        mDriverState = DRIVER_STATE_STOPPED;
     }
 
     // test only
@@ -255,6 +270,10 @@ public class BleDriver {
     // Android only provides a way to know if startScan has failed so we set the scanning state
     // to true and ScanCallback will set it to false in case of failure.
     private void setScanning(boolean enable) {
+        if (mBluetoothLeScanner == null) {
+            Log.d(TAG, "setScanning(): abort");
+            return ;
+        }
         if (enable && !getScanningState()) {
             setScanningState(true);
             mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanCallback);
@@ -276,6 +295,10 @@ public class BleDriver {
     }
 
     private void setAdvertising(boolean enable) {
+        if (mBluetoothLeAdvertiser == null) {
+            Log.d(TAG, "setAdvertising(): abort");
+            return ;
+        }
         if (enable && !getAdvertisingState()) {
             mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiseCallback);
         } else if (!enable && getAdvertisingState()) {

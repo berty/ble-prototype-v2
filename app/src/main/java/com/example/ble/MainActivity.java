@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Thread.currentThread().setName("mainThread");
 
         devices = new ArrayList<>();
         scanList = findViewById(R.id.scan_listView);

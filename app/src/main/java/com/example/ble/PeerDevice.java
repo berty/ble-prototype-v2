@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.content.Intent;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -81,6 +82,9 @@ public class PeerDevice {
                             for (BluetoothGattCharacteristic characteristic : characteristics) {
                                 if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
                                     Log.i(TAG, "onServicesDiscovered(): peerID is " + characteristic.getUuid());
+                                    Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
+                                    intent.putExtra(BleDriver.EXTRA_DATA, mBluetoothDevice.getAddress());
+                                    mContext.sendBroadcast(intent);
                                 }
                             }
                             break ;

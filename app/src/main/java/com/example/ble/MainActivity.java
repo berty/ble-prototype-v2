@@ -9,8 +9,10 @@ import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -42,20 +44,26 @@ public class MainActivity extends AppCompatActivity {
     private int[] permissionsRequestCode = { BLUETOOTH, BLUETOOTH_ADMIN, ACCESS_FINE_LOCATION };
     private boolean permissions[] = {false, false, false};
     private BluetoothAdapter bluetoothAdapter;
-    private ArrayList<BluetoothDevice> devices;
+    private ArrayList<String> devices;
     private ListView scanList;
     private ScanListAdapter scanListAdapter;
     private Handler handler;
     private AdapterView.OnItemClickListener messageClickHandler;
     private BleDriver bleDriver = new BleDriver();
+    private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            String peerID = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA);
+            addScanEntry(action + ": " + peerID);
+        }
+    };
 
-    private class ScanListAdapter extends ArrayAdapter<BluetoothDevice> {
+    private class ScanListAdapter extends ArrayAdapter<String> {
 
-        public ScanListAdapter(Context context, int resource, ArrayList<BluetoothDevice> devices) {
+        public ScanListAdapter(Context context, int resource, ArrayList<String> devices) {
             super(context, resource, devices);
         }
-
-        ArrayList<BluetoothAdapter> devices;
 
         @Override
         public View getView(int position, View convertView, ViewGroup container) {
@@ -64,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
                         container, false);
             }
             TextView textView = convertView.findViewById(android.R.id.text1);
-            textView.setText(getItem(position).getName());
+            textView.setText(getItem(position));
             return convertView;
         }
     }
@@ -84,13 +92,13 @@ public class MainActivity extends AppCompatActivity {
         messageClickHandler = new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent intent = new Intent(getApplicationContext(), DeviceActivity.class);
+                /*Intent intent = new Intent(getApplicationContext(), DeviceActivity.class);
                 intent.putExtra("ble.device",
                         (BluetoothDevice)parent.getItemAtPosition(position));
-                startActivity(intent);
+                startActivity(intent);*/
             }
         };
-        scanList.setOnItemClickListener(messageClickHandler);
+        //scanList.setOnItemClickListener(messageClickHandler);
 
         handler = new Handler(Looper.getMainLooper());
 
@@ -123,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, ENABLE_BT_REQUEST);
         }
+        getApplicationContext().registerReceiver(mBroadcastReceiver, new IntentFilter(JavaToGo.INTERFACE_FOUND_PEER));
     }
 
     private boolean hasPermission(String permission) {
@@ -187,14 +196,6 @@ public class MainActivity extends AppCompatActivity {
         bleDriver.StopAdvertising();
     }
 
-    private BluetoothAdapter.LeScanCallback leScanCallBack = new BluetoothAdapter.LeScanCallback() {
-        @Override
-        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-            if (device != null && device.getName() != null && devices.indexOf(device) == -1)
-                addScanEntry(device);
-        }
-    };
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == ENABLE_BT_REQUEST) {
@@ -202,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void addScanEntry(BluetoothDevice device) {
+    private void addScanEntry(String device) {
         devices.add(device);
         scanListAdapter.notifyDataSetChanged();
     }

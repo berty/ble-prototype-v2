@@ -17,7 +17,10 @@ import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanSettings;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -38,6 +41,9 @@ public class BleDriver {
     static final UUID PEER_ID_UUID = UUID.fromString("0EF50D30-E208-4315-B323-D05E0A23E6B5");
     static final UUID WRITER_UUID = UUID.fromString("000CBD77-8D30-4EFF-9ADD-AC5F10C2CC1B");
     static final ParcelUuid P_SERVICE_UUID = new ParcelUuid(SERVICE_UUID);
+
+    static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
+    static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";
 
     private Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
@@ -61,7 +67,7 @@ public class BleDriver {
     // Scanner is the implementation of the ScanCallback abstract class
     private ScanFilter mScanFilter = Scanner.buildScanFilter();
     private ScanSettings mScanSettings = Scanner.BuildScanSettings();
-    private Scanner mScanCallback = new Scanner(mAppContext, mDeviceManager);
+    private Scanner mScanCallback;
     private BluetoothLeScanner mBluetoothLeScanner;
     private static boolean mScanning;
 
@@ -111,6 +117,9 @@ public class BleDriver {
         }
         mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
         mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
+        // is the right place? Context must not be null!
+        JavaToGo.setContext(mAppContext);
+        mScanCallback = new Scanner(mAppContext, mDeviceManager);
     }
 
     public boolean StartBleDriver(String localPeerID) {
@@ -134,6 +143,7 @@ public class BleDriver {
             Log.e(TAG, "StartBleDriver() error: setup Gatt server");
             return false;
         }
+        mAppContext.registerReceiver(mBroadcastReceiver, makeIntentFilter());
         setAdvertising(true);
         setScanning(true);
         mDriverState = true;
@@ -145,6 +155,7 @@ public class BleDriver {
             Log.d(TAG, "driver is already off");
             return ;
         }
+        mAppContext.unregisterReceiver(mBroadcastReceiver);
         setAdvertising(false);
         setScanning(false);
         closeGattServer();
@@ -286,6 +297,22 @@ public class BleDriver {
     private void setLocalPeerID(String localPeerID) { mPeerIDCharacteristic.setValue(localPeerID); }
 
     private String getLocalPeerID() { return mPeerIDCharacteristic.getStringValue(0); }
+
+    private static IntentFilter makeIntentFilter() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_PEER_FOUND);
+        return filter;
+    }
+
+    private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            String peerID = intent.getStringExtra(BleDriver.EXTRA_DATA);
+            Log.d(TAG, "onReceive() called: " + action);
+            JavaToGo.handleFoundPeer(peerID);
+        }
+    };
 
     private BluetoothGattServerCallback mBluetoothGattServerCallback =
             new BluetoothGattServerCallback() {

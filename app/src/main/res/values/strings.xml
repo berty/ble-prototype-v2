@@ -5,8 +5,6 @@
     <string name="scanOn_button">Scan devices</string>
     <string name="scanOff_button">Scan off</string>
     <string name="ble_permissions_explain">BLE communication allow you to find nearby phones</string>
-    <string name="device_services">Device services</string>
-    <string name="device_characteristics">Device characteristic</string>
     <string name="driverOn_button">Driver On</string>
     <string name="driverOff_button">Driver Off</string>
     <string name="advertiseOn_button">Advertise On</string>

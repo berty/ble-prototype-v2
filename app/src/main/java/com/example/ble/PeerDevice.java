@@ -13,6 +13,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 public class PeerDevice {
     private static final String TAG = PeerDevice.class.getSimpleName();
@@ -20,13 +21,18 @@ public class PeerDevice {
     public static final String ACTION_STATE_CONNECTED = "peerDevice.STATE_CONNECTED";
     public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
 
-    private int mState = BluetoothProfile.STATE_DISCONNECTED;
+    public static final int STATE_DISCONNECTED = 0;
+    public static final int STATE_CONNECTED = 1;
+    public static final int STATE_CONNECTING = 2;
+    public static final int STATE_DISCONNECTING = 3;
+    private int mState = STATE_DISCONNECTED;
 
     private Context mContext;
     private BluetoothDevice mBluetoothDevice;
     private BluetoothGatt mBluetoothGatt;
 
-    private Runnable mRunnable;
+    private Thread mThread;
+    private final Object mLockState = new Object();
 
     public PeerDevice(@NonNull Context context, @NonNull BluetoothDevice bluetoothDevice) {
         mContext = context;
@@ -43,27 +49,52 @@ public class PeerDevice {
         return getMACAddress();
     }
 
+    // Use TRANSPORT_LE for connections to remote dual-mode devices. This is a solution to prevent the error
+    // status 133 in GATT connections:
+    // https://android.jlelse.eu/lessons-for-first-time-android-bluetooth-le-developers-i-learned-the-hard-way-fee07646624
+    // API level 23
     public boolean asyncConnectionToDevice(String caller) {
         Log.d(TAG, "asyncConnectionToDevice: caller: " + caller);
         if (!isConnected()) {
-            mRunnable = new Runnable() {
+            mThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    Thread.currentThread().setName(mBluetoothDevice.getAddress());
                     mBluetoothGatt = mBluetoothDevice.connectGatt(mContext, false,
-                            mGattCallback);
+                            mGattCallback, BluetoothDevice.TRANSPORT_LE);
                 }
-            };
-            mRunnable.run();
+            });
+            mThread.start();
         }
         return false;
     }
 
     public boolean isConnected() {
-        return mState == BluetoothProfile.STATE_CONNECTED;
+        return getState() == STATE_CONNECTED;
+    }
+
+    public boolean isDisconnected() {
+        return getState() == STATE_DISCONNECTED;
     }
 
     public void setState(int state) {
-        mState = state;
+        synchronized (mLockState) {
+            mState = state;
+        }
+    }
+
+    public int getState() {
+        final int state;
+        synchronized (mLockState) {
+            state = mState;
+        }
+        return state;
+    }
+
+    public void close() {
+        if (isConnected()) {
+            mBluetoothGatt.close();
+        }
     }
 
     private BluetoothGattCallback mGattCallback =
@@ -74,19 +105,22 @@ public class PeerDevice {
                     Log.d(TAG, "onConnectionStateChange() called in thread " + Thread.currentThread().getName());
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): connected");
-                        setState(BluetoothProfile.STATE_CONNECTED);
+                        setState(STATE_CONNECTED);
                         mBluetoothGatt.discoverServices();
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): disconnected");
-                        setState(BluetoothProfile.STATE_DISCONNECTED);
+                        setState(STATE_DISCONNECTED);
+                        mBluetoothGatt = null;
                     } else {
                         Log.e(TAG, "onConnectionStateChange(): unknown state");
+                        mBluetoothGatt.close();
+                        mBluetoothGatt = null;
                     }
                 }
                 @Override
                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                     super.onServicesDiscovered(gatt, status);
-                    Log.d(TAG, "onServicesDiscovered(): called");
+                    Log.d(TAG, "onServicesDiscovered(): called in thread " + Thread.currentThread().getName());
                     List<BluetoothGattService> services = gatt.getServices();
                     Log.d(TAG, "onServicesDiscovered(): services discovered: " + services);
                     for (BluetoothGattService service : services) {
@@ -100,6 +134,7 @@ public class PeerDevice {
                                     Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
                                     intent.putExtra(BleDriver.EXTRA_DATA, mBluetoothDevice.getAddress());
                                     mContext.sendBroadcast(intent);
+                                    mBluetoothGatt.close();
                                 }
                             }
                             break ;

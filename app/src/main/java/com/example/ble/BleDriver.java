@@ -61,6 +61,7 @@ public class BleDriver {
     // GATT server
     private BluetoothGattServer mBluetoothGattServer;
     private boolean mGattServerState;
+    private Thread mGattServerThread;
 
     // Scanning
     // API level 21
@@ -85,20 +86,6 @@ public class BleDriver {
     private static final int DRIVER_STATE_STARTED = 2;
     private static final int DRIVER_STATE_STOPPED = 3;
     private int mDriverState = DRIVER_STATE_NOT_INIT;
-
-    private BluetoothGattCallback bluetoothGattCallback =
-            new BluetoothGattCallback() {
-                @Override
-                public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-                    super.onConnectionStateChange(gatt, status, newState);
-                    if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        Log.d(TAG, "bluetoothGattCallback: device connected");
-                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        Log.d(TAG, "bluetoothGattCallback: device disconnected");
-                        mAdvertising = true;
-                    }
-                }
-            };
 
     /*
     Get Context by a hacking way
@@ -173,6 +160,7 @@ public class BleDriver {
         mAppContext.unregisterReceiver(mBroadcastReceiver);
         setAdvertising(false);
         setScanning(false);
+        mDeviceManager.closeAllDeviceConnections();
         closeGattServer();
         mDriverState = DRIVER_STATE_STOPPED;
     }
@@ -236,21 +224,26 @@ public class BleDriver {
     // BluetoothGattServerCallback#onServiceAdded. It's only after this callback that the server
     // will be ready.
     private boolean setupGattServer() {
-        BluetoothManager bluetoothManager;
+        final BluetoothManager bluetoothManager;
 
-        Log.d(TAG, "setupGattServer() called");
+        Log.d(TAG, "setupGattServer() called in thread " + Thread.currentThread().getName());
         if (mBluetoothGattServer != null)
             return (true);
         if ((bluetoothManager = (BluetoothManager)mAppContext.getSystemService(BLUETOOTH_SERVICE)) == null) {
             Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
             return false;
         }
-        mBluetoothGattServer = bluetoothManager.openGattServer(mAppContext, mBluetoothGattServerCallback);
-        if (!mBluetoothGattServer.addService(mService)) {
-            Log.e(TAG, "setupGattServer() error: cannot add a new service");
-            mBluetoothGattServer = null;
-            return false;
-        }
+        mGattServerThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                mBluetoothGattServer = bluetoothManager.openGattServer(mAppContext, mBluetoothGattServerCallback);
+                if (!mBluetoothGattServer.addService(mService)) {
+                    Log.e(TAG, "setupGattServer() error: cannot add a new service");
+                    mBluetoothGattServer = null;
+                }
+            }
+        });
+        mGattServerThread.start();
         return true;
     }
 
@@ -275,11 +268,13 @@ public class BleDriver {
             return ;
         }
         if (enable && !getScanningState()) {
-            setScanningState(true);
+            Log.d(TAG, "setScanning(): enabled");
             mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanCallback);
+            setScanningState(true);
         } else if (!enable && getScanningState()) {
-            setScanningState(false);
+            Log.d(TAG, "setScanning(): disabled");
             mBluetoothLeScanner.stopScan(mScanCallback);
+            setScanningState(false);
         }
     }
 
@@ -300,9 +295,13 @@ public class BleDriver {
             return ;
         }
         if (enable && !getAdvertisingState()) {
+            Log.d(TAG, "setAdvertising(): enabled");
             mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiseCallback);
+            setAdvertisingState(true);
         } else if (!enable && getAdvertisingState()) {
+            Log.d(TAG, "setAdvertising(): disabled");
             mBluetoothLeAdvertiser.stopAdvertising(mAdvertiseCallback);
+            setAdvertisingState(false);
         }
     }
 
@@ -341,6 +340,7 @@ public class BleDriver {
             new BluetoothGattServerCallback() {
                 @Override
                 public void onServiceAdded(int status, BluetoothGattService service) {
+                    Log.d(TAG, "onServiceAdded() called in thread " + Thread.currentThread().getName());
                     super.onServiceAdded(status, service);
                     if (status != BluetoothGatt.GATT_SUCCESS) {
                         Log.e(TAG, "onServiceAdded error: failed to add service " + service);

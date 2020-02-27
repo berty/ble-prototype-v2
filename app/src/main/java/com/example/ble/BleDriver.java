@@ -3,6 +3,7 @@ package com.example.ble;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -145,8 +146,8 @@ public class BleDriver {
             return false;
         }
         mAppContext.registerReceiver(mBroadcastReceiver, makeIntentFilter());
-        setAdvertising(true);
-        setScanning(true);
+        //setAdvertising(true);
+        //setScanning(true);
         mDriverState = DRIVER_STATE_STARTED;
         Log.d(TAG, "StartBleDriver: init completed");
         return true;
@@ -345,6 +346,27 @@ public class BleDriver {
                     if (status != BluetoothGatt.GATT_SUCCESS) {
                         Log.e(TAG, "onServiceAdded error: failed to add service " + service);
                         closeGattServer();
+                    }
+                }
+
+                @Override
+                public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
+                    Log.v(TAG, "onConnectionStateChange() called with device: " + device + " with newState: " + newState);
+
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        Log.v(TAG, "connected");
+                        PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
+
+                        if (peerDevice == null) {
+                            Log.i(TAG, "onConnectionStateChange() scanned a new device: " + device.getAddress());
+                            peerDevice = new PeerDevice(mAppContext, device);
+                            mDeviceManager.addDevice(peerDevice);
+                        }
+                        if (peerDevice.isDisconnected()) {
+                            // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
+                            peerDevice.setState(PeerDevice.STATE_CONNECTING);
+                            peerDevice.asyncConnectionToDevice("onConnectionStateChange(), known device");
+                        }
                     }
                 }
             };

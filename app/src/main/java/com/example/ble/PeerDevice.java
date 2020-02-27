@@ -54,14 +54,16 @@ public class PeerDevice {
     // https://android.jlelse.eu/lessons-for-first-time-android-bluetooth-le-developers-i-learned-the-hard-way-fee07646624
     // API level 23
     public boolean asyncConnectionToDevice(String caller) {
-        Log.d(TAG, "asyncConnectionToDevice: caller: " + caller);
+        Log.d(TAG, "asyncConnectionToDevice: caller: " + caller + " in thread " + Thread.currentThread().getName());
         if (!isConnected()) {
             mThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    Log.d(TAG, "asyncConnectionToDevice: current thread before renaming is " + Thread.currentThread().getName());
                     Thread.currentThread().setName(mBluetoothDevice.getAddress());
-                    mBluetoothGatt = mBluetoothDevice.connectGatt(mContext, false,
-                            mGattCallback, BluetoothDevice.TRANSPORT_LE);
+                    Log.d(TAG, "asyncConnectionToDevice: current thread after renaming is " + Thread.currentThread().getName());
+                    setBluetoothGatt(mBluetoothDevice.connectGatt(mContext, false,
+                            mGattCallback, BluetoothDevice.TRANSPORT_LE));
                 }
             });
             mThread.start();
@@ -77,6 +79,8 @@ public class PeerDevice {
         return getState() == STATE_DISCONNECTED;
     }
 
+    // setters and getters are accessed by the DeviceManager thread et this thread so we need to
+    // synchronize them.
     public void setState(int state) {
         synchronized (mLockState) {
             mState = state;
@@ -84,16 +88,27 @@ public class PeerDevice {
     }
 
     public int getState() {
-        final int state;
         synchronized (mLockState) {
-            state = mState;
+            return mState;
         }
-        return state;
+    }
+
+    public void setBluetoothGatt(BluetoothGatt gatt) {
+        synchronized (mLockState) {
+            mBluetoothGatt = gatt;
+        }
+    }
+
+    public BluetoothGatt getBluetoothGatt() {
+        synchronized (mLockState) {
+            return mBluetoothGatt;
+        }
     }
 
     public void close() {
         if (isConnected()) {
-            mBluetoothGatt.close();
+            getBluetoothGatt().close();
+            setState(STATE_DISCONNECTING);
         }
     }
 
@@ -106,15 +121,14 @@ public class PeerDevice {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): connected");
                         setState(STATE_CONNECTED);
-                        mBluetoothGatt.discoverServices();
+                        gatt.discoverServices();
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): disconnected");
                         setState(STATE_DISCONNECTED);
-                        mBluetoothGatt = null;
+                        setBluetoothGatt(null);
                     } else {
                         Log.e(TAG, "onConnectionStateChange(): unknown state");
-                        mBluetoothGatt.close();
-                        mBluetoothGatt = null;
+                        close();
                     }
                 }
                 @Override
@@ -134,7 +148,7 @@ public class PeerDevice {
                                     Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
                                     intent.putExtra(BleDriver.EXTRA_DATA, mBluetoothDevice.getAddress());
                                     mContext.sendBroadcast(intent);
-                                    mBluetoothGatt.close();
+                                    close();
                                 }
                             }
                             break ;

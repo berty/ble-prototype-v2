@@ -173,8 +173,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void scanOn(final View view) {
-        // Stops scanning after 10 seconds.
-        final long SCAN_PERIOD = 10000;
+        // Stops scanning after 20 seconds.
+        final long SCAN_PERIOD = 20000;
 
         handler.postDelayed(new Runnable() {
             @Override

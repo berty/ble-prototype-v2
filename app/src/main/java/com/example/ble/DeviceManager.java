@@ -13,7 +13,7 @@ public class DeviceManager {
 
     private HashMap<String, PeerDevice> mPeerDevices = new HashMap<>();
 
-    public PeerDevice put(String key, PeerDevice value) {
+    public synchronized PeerDevice put(String key, PeerDevice value) {
         Log.d(TAG, "put() called");
         PeerDevice peerDevice = mPeerDevices.get(key);
         if (peerDevice == null) {
@@ -25,7 +25,7 @@ public class DeviceManager {
         }
     }
 
-    public PeerDevice get(String key) {
+    public synchronized PeerDevice get(String key) {
         Log.d(TAG, "get() called");
         PeerDevice peerDevice = mPeerDevices.get(key);
         if (peerDevice != null) {

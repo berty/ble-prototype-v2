@@ -107,11 +107,10 @@ public class Scanner extends ScanCallback {
             Log.i(TAG, "parseResult() scanned a new device: " + device.getAddress());
             peerDevice = new PeerDevice(mContext, device);
             mDeviceManager.addDevice(peerDevice);
-
+        }
+        if (peerDevice.isDisconnected()) {
             // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
             peerDevice.setState(PeerDevice.STATE_CONNECTING);
-            peerDevice.asyncConnectionToDevice("parseResult(), unknown device");
-        } else if (peerDevice.isDisconnected()) {
             peerDevice.asyncConnectionToDevice("parseResult(), known device");
         }
     }

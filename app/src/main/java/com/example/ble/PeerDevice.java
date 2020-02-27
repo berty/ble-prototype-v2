@@ -13,6 +13,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Semaphore;
 
 public class PeerDevice {
@@ -33,6 +34,12 @@ public class PeerDevice {
 
     private Thread mThread;
     private final Object mLockState = new Object();
+
+    private BluetoothGattService mBertyService;
+    private BluetoothGattCharacteristic mPeerIDCharacteristic;
+    private BluetoothGattCharacteristic mWriterCharacteristic;
+
+    private UUID mPeerID;
 
     public PeerDevice(@NonNull Context context, @NonNull BluetoothDevice bluetoothDevice) {
         mContext = context;
@@ -105,11 +112,102 @@ public class PeerDevice {
         }
     }
 
+    public void setPeerIDCharacteristic(BluetoothGattCharacteristic peerID) {
+        mPeerIDCharacteristic = peerID;
+    }
+
+    public BluetoothGattCharacteristic getPeerIDCharacteristic() {
+        return mPeerIDCharacteristic;
+    }
+
+    public void setWriterCharacteristic(BluetoothGattCharacteristic write) {
+        mWriterCharacteristic = write;
+    }
+
+    public BluetoothGattCharacteristic getWriterCharacteristic() {
+        return mWriterCharacteristic;
+    }
+
+    public BluetoothGattService getBertyService() {
+        return mBertyService;
+    }
+
+    public void setBertyService(BluetoothGattService service) {
+        mBertyService = service;
+    }
+
+    public void setPeerID(UUID peerID) {
+        mPeerID = peerID;
+    }
+
+    public UUID getPeerID() {
+        return mPeerID;
+    }
+
     public void close() {
         if (isConnected()) {
             getBluetoothGatt().close();
             setState(STATE_DISCONNECTING);
         }
+    }
+
+    private boolean takeBertyService(List<BluetoothGattService> services) {
+        for (BluetoothGattService service : services) {
+            if (service.getUuid().equals(BleDriver.SERVICE_UUID)) {
+                Log.d(TAG, "takeBertyService(): found");
+                setBertyService(service);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean checkCharacteristicProperties(BluetoothGattCharacteristic characteristic,
+                                                  int properties) {
+        if (characteristic.getProperties() == properties) {
+            Log.d(TAG, "checkCharacteristicProperties() match");
+            return true;
+        }
+        Log.e(TAG, "checkCharacteristicProperties() doesn't match: " + characteristic.getProperties() + " / " + properties);
+        return false;
+    }
+
+    private boolean takeBertyCharacteristics() {
+        int nbOfFoundCharacteristics = 0;
+        List<BluetoothGattCharacteristic> characteristics = mBertyService.getCharacteristics();
+        for (BluetoothGattCharacteristic characteristic : characteristics) {
+            if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
+                Log.d(TAG, "takeBertyCharacteristic(): peerID characteristic found");
+                if (checkCharacteristicProperties(characteristic,
+                        BluetoothGattCharacteristic.PROPERTY_READ)) {
+                    setPeerIDCharacteristic(characteristic);
+                    nbOfFoundCharacteristics++;
+                }
+            } else if (characteristic.getUuid().equals(BleDriver.WRITER_UUID)) {
+                Log.d(TAG, "takeBertyCharacteristic(): writer characteristic found");
+                if (checkCharacteristicProperties(characteristic,
+                        BluetoothGattCharacteristic.PROPERTY_WRITE)) {
+                    setWriterCharacteristic(characteristic);
+                    nbOfFoundCharacteristics++;
+                }
+            }
+            if (nbOfFoundCharacteristics == 2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean takePeerID() {
+        String peerID;
+
+        if ((peerID = mPeerIDCharacteristic.getStringValue(0)) == null || peerID.length() == 0) {
+            Log.e(TAG, "takePeerID() error: peerID is null");
+            return false;
+        }
+        setPeerID(UUID.fromString(peerID));
+        Log.d(TAG, "takePeerID(): peerID is " + peerID);
+        return true;
     }
 
     private BluetoothGattCallback mGattCallback =
@@ -134,24 +232,15 @@ public class PeerDevice {
                 @Override
                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                     super.onServicesDiscovered(gatt, status);
-                    Log.d(TAG, "onServicesDiscovered(): called in thread " + Thread.currentThread().getName());
-                    List<BluetoothGattService> services = gatt.getServices();
-                    Log.d(TAG, "onServicesDiscovered(): services discovered: " + services);
-                    for (BluetoothGattService service : services) {
-                        Log.d(TAG, "onServicesDiscovered(): service named " + service.getUuid());
-                        if (service.getUuid().equals(BleDriver.SERVICE_UUID)) {
-                            Log.i(TAG, "onServicesDiscovered(): Berty service found!");
-                            List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
-                            for (BluetoothGattCharacteristic characteristic : characteristics) {
-                                if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
-                                    Log.i(TAG, "onServicesDiscovered(): peerID is " + characteristic.getUuid());
-                                    Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
-                                    intent.putExtra(BleDriver.EXTRA_DATA, mBluetoothDevice.getAddress());
-                                    mContext.sendBroadcast(intent);
-                                    close();
-                                }
-                            }
-                            break ;
+                    Log.d(TAG, "onServicesDiscovered(): called");
+                    if (takeBertyService(gatt.getServices())) {
+                        if (takeBertyCharacteristics()) {
+                            takePeerID();
+                            // example of signal
+                            Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
+                            intent.putExtra(BleDriver.EXTRA_DATA, mBluetoothDevice.getAddress());
+                            mContext.sendBroadcast(intent);
+                            close();
                         }
                     }
                 }

@@ -152,6 +152,7 @@ public class PeerDevice {
     }
 
     private boolean takeBertyService(List<BluetoothGattService> services) {
+        Log.d(TAG, "takeBertyService() called");
         for (BluetoothGattService service : services) {
             if (service.getUuid().equals(BleDriver.SERVICE_UUID)) {
                 Log.d(TAG, "takeBertyService(): found");
@@ -198,15 +199,14 @@ public class PeerDevice {
         return false;
     }
 
-    public boolean takePeerID() {
-        String peerID;
-
-        if ((peerID = mPeerIDCharacteristic.getStringValue(0)) == null || peerID.length() == 0) {
-            Log.e(TAG, "takePeerID() error: peerID is null");
+    // Asynchronous operation that will be reported to the BluetoothGattCallback#onCharacteristicRead
+    // callback.
+    public boolean requestPeerIDValue() {
+        Log.v(TAG, "requestPeerIDValue() called");
+        if (!mBluetoothGatt.readCharacteristic(getPeerIDCharacteristic())) {
+            Log.e(TAG, "requestPeerIDValue() error");
             return false;
         }
-        setPeerID(UUID.fromString(peerID));
-        Log.d(TAG, "takePeerID(): peerID is " + peerID);
         return true;
     }
 
@@ -226,22 +226,46 @@ public class PeerDevice {
                         setBluetoothGatt(null);
                     } else {
                         Log.e(TAG, "onConnectionStateChange(): unknown state");
+                        setState(STATE_DISCONNECTED);
                         close();
                     }
                 }
+
                 @Override
                 public void onServicesDiscovered(BluetoothGatt gatt, int status) {
                     super.onServicesDiscovered(gatt, status);
                     Log.d(TAG, "onServicesDiscovered(): called");
                     if (takeBertyService(gatt.getServices())) {
                         if (takeBertyCharacteristics()) {
-                            takePeerID();
-                            // example of signal
-                            Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
-                            intent.putExtra(BleDriver.EXTRA_DATA, mBluetoothDevice.getAddress());
-                            mContext.sendBroadcast(intent);
-                            close();
+                            requestPeerIDValue();
                         }
+                    }
+                }
+
+                @Override
+                public void onCharacteristicRead(BluetoothGatt gatt,
+                                                 BluetoothGattCharacteristic characteristic,
+                                                 int status) {
+                    super.onCharacteristicRead(gatt, characteristic, status);
+                    Log.d(TAG, "onCharacteristicRead() called");
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        Log.e(TAG, "onCharacteristicRead(): read error");
+                        gatt.close();
+                    }
+                    if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
+                        String peerID;
+                        if ((peerID = characteristic.getStringValue(0)) == null || peerID.length() == 0) {
+                            Log.e(TAG, "takePeerID() error: peerID is null");
+                        } else {
+                            setPeerID(UUID.fromString(peerID));
+                            Log.i(TAG, "takePeerID(): peerID is " + peerID);
+                        }
+                        // example of signal
+                        Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
+                        intent.putExtra(BleDriver.EXTRA_DATA, getPeerID().toString());
+                        mContext.sendBroadcast(intent);
+                        // finished
+                        close();
                     }
                 }
             };

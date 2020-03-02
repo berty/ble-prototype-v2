@@ -31,6 +31,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -164,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void driverOn(final View view) {
-        if (!bleDriver.StartBleDriver("localPeerID"))
+        if (!bleDriver.StartBleDriver(UUID.randomUUID().toString()))
             Log.e(TAG, "bleScanStart: failed to start ble");
     }
 

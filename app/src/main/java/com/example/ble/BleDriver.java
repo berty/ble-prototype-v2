@@ -25,6 +25,7 @@ import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -210,11 +211,12 @@ public class BleDriver {
 
     private boolean setupGattService(String localPeerID) {
         Log.d(TAG, "setupGattService() called");
+        // probably not necessary
         setLocalPeerID(localPeerID);
-        if (((mService.getCharacteristic(PEER_ID_UUID) == null)
-                && !mService.addCharacteristic(mPeerIDCharacteristic)) ||
-                ((mService.getCharacteristic(WRITER_UUID) == null)
-                        && !mService.addCharacteristic(mWriterCharacteristic))) {
+        mPeerIDCharacteristic.setValue(localPeerID);
+        Log.d(TAG, "peerID: " + mPeerIDCharacteristic.getStringValue(0));
+        if (!mService.addCharacteristic(mPeerIDCharacteristic)
+                        || !mService.addCharacteristic(mWriterCharacteristic)) {
             Log.e(TAG, "setupService() failed: can't add characteristics to service");
             return false;
         }
@@ -358,7 +360,7 @@ public class BleDriver {
                         PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
 
                         if (peerDevice == null) {
-                            Log.i(TAG, "onConnectionStateChange() scanned a new device: " + device.getAddress());
+                            Log.i(TAG, "onConnectionStateChange(): a new device is connected: " + device.getAddress());
                             peerDevice = new PeerDevice(mAppContext, device);
                             mDeviceManager.addDevice(peerDevice);
                         }
@@ -367,6 +369,18 @@ public class BleDriver {
                             peerDevice.setState(PeerDevice.STATE_CONNECTING);
                             peerDevice.asyncConnectionToDevice("onConnectionStateChange(), known device");
                         }
+                    }
+                }
+
+                @Override
+                public void onCharacteristicReadRequest(BluetoothDevice device,
+                                                        int requestId,
+                                                        int offset,
+                                                        BluetoothGattCharacteristic characteristic) {
+                    if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
+                        byte[] value = Arrays.copyOfRange(getLocalPeerID().getBytes(), offset, getLocalPeerID().length());
+                        Log.d(TAG, "onCharacteristicReadRequest(): offset: " + offset + " value: " + value);
+                        mBluetoothGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
                     }
                 }
             };

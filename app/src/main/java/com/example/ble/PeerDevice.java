@@ -30,20 +30,26 @@ public class PeerDevice {
 
     private Context mContext;
     private BluetoothDevice mBluetoothDevice;
+    private PeerManager mPeerManager;
     private BluetoothGatt mBluetoothGatt;
 
     private Thread mThread;
     private final Object mLockState = new Object();
+    private final Object mLockReadPeerID = new Object();
 
     private BluetoothGattService mBertyService;
     private BluetoothGattCharacteristic mPeerIDCharacteristic;
     private BluetoothGattCharacteristic mWriterCharacteristic;
 
     private UUID mPeerID;
+    private boolean mHasReadServerPeerID;
+    private boolean mHasReadClientPeerID;
 
-    public PeerDevice(@NonNull Context context, @NonNull BluetoothDevice bluetoothDevice) {
+    public PeerDevice(@NonNull Context context, @NonNull BluetoothDevice bluetoothDevice,
+                      PeerManager peerManager) {
         mContext = context;
         mBluetoothDevice = bluetoothDevice;
+        mPeerManager = peerManager;
     }
 
     public String getMACAddress() {
@@ -60,15 +66,13 @@ public class PeerDevice {
     // status 133 in GATT connections:
     // https://android.jlelse.eu/lessons-for-first-time-android-bluetooth-le-developers-i-learned-the-hard-way-fee07646624
     // API level 23
-    public boolean asyncConnectionToDevice(String caller) {
-        Log.d(TAG, "asyncConnectionToDevice: caller: " + caller + " in thread " + Thread.currentThread().getName());
+    public boolean asyncConnectionToDevice() {
+        Log.d(TAG, "asyncConnectionToDevice() called");
+
         if (!isConnected()) {
             mThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(TAG, "asyncConnectionToDevice: current thread before renaming is " + Thread.currentThread().getName());
-                    Thread.currentThread().setName(mBluetoothDevice.getAddress());
-                    Log.d(TAG, "asyncConnectionToDevice: current thread after renaming is " + Thread.currentThread().getName());
                     setBluetoothGatt(mBluetoothDevice.connectGatt(mContext, false,
                             mGattCallback, BluetoothDevice.TRANSPORT_LE));
                 }
@@ -144,6 +148,38 @@ public class PeerDevice {
         return mPeerID;
     }
 
+    public void setReadClientPeerID(boolean value) {
+        Log.d(TAG, "setReadClientPeerID called: " + value);
+        synchronized (mLockReadPeerID) {
+            mHasReadClientPeerID = value;
+            if (mHasReadServerPeerID) {
+                mPeerManager.set(getPeerID(), true);
+            }
+        }
+    }
+
+    public boolean hasReadClientPeerID() {
+        synchronized (mLockReadPeerID) {
+            return mHasReadClientPeerID;
+        }
+    }
+
+    public void setReadServerPeerID(boolean value) {
+        Log.d(TAG, "setReadServerPeerID called: " + value);
+        synchronized (mLockReadPeerID) {
+            mHasReadServerPeerID = value;
+            if (mHasReadClientPeerID) {
+                mPeerManager.set(getPeerID(), true);
+            }
+        }
+    }
+
+    public boolean hasReadServerPeerID() {
+        synchronized (mLockReadPeerID) {
+            return mHasReadServerPeerID;
+        }
+    }
+
     public void close() {
         if (isConnected()) {
             getBluetoothGatt().close();
@@ -215,7 +251,7 @@ public class PeerDevice {
                 @Override
                 public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                     super.onConnectionStateChange(gatt, status, newState);
-                    Log.d(TAG, "onConnectionStateChange() called in thread " + Thread.currentThread().getName());
+                    Log.d(TAG, "onConnectionStateChange() called by device " + gatt.getDevice().getAddress());
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): connected");
                         setState(STATE_CONNECTED);
@@ -254,18 +290,14 @@ public class PeerDevice {
                     }
                     if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
                         String peerID;
-                        if ((peerID = characteristic.getStringValue(0)) == null || peerID.length() == 0) {
+                        if ((peerID = characteristic.getStringValue(0)) == null
+                                || peerID.length() == 0) {
                             Log.e(TAG, "takePeerID() error: peerID is null");
                         } else {
                             setPeerID(UUID.fromString(peerID));
                             Log.i(TAG, "takePeerID(): peerID is " + peerID);
+                            setReadClientPeerID(true);
                         }
-                        // example of signal
-                        Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
-                        intent.putExtra(BleDriver.EXTRA_DATA, getPeerID().toString());
-                        mContext.sendBroadcast(intent);
-                        // finished
-                        close();
                     }
                 }
             };

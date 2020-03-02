@@ -47,10 +47,14 @@ public class BleDriver {
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
     static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";
 
+    static final int CALLER_IS_SCANNER = 0;
+    static final int CALLER_IS_GATT_SERVER = 1;
+
     private Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
 
     private final DeviceManager mDeviceManager = new DeviceManager();
+    private PeerManager mPeerManager;
 
     // GATT service
     private final BluetoothGattService mService =
@@ -116,7 +120,8 @@ public class BleDriver {
         }
         // is the right place? Context must not be null!
         JavaToGo.setContext(mAppContext);
-        mScanCallback = new Scanner(mAppContext, mDeviceManager);
+        mPeerManager = new PeerManager(mAppContext);
+        mScanCallback = new Scanner(mAppContext, mDeviceManager, mPeerManager);
         // Init ok, set driver to the ready state
         mDriverState = DRIVER_STATE_INIT;
     }
@@ -165,12 +170,6 @@ public class BleDriver {
         mDeviceManager.closeAllDeviceConnections();
         closeGattServer();
         mDriverState = DRIVER_STATE_STOPPED;
-    }
-
-    // test only
-
-    public String getMACAddress() {
-        return mBluetoothAdapter.getAddress();
     }
 
     // Method only for test purposes
@@ -361,13 +360,13 @@ public class BleDriver {
 
                         if (peerDevice == null) {
                             Log.i(TAG, "onConnectionStateChange(): a new device is connected: " + device.getAddress());
-                            peerDevice = new PeerDevice(mAppContext, device);
+                            peerDevice = new PeerDevice(mAppContext, device, mPeerManager);
                             mDeviceManager.addDevice(peerDevice);
                         }
                         if (peerDevice.isDisconnected()) {
                             // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
                             peerDevice.setState(PeerDevice.STATE_CONNECTING);
-                            peerDevice.asyncConnectionToDevice("onConnectionStateChange(), known device");
+                            peerDevice.asyncConnectionToDevice();
                         }
                     }
                 }
@@ -377,10 +376,17 @@ public class BleDriver {
                                                         int requestId,
                                                         int offset,
                                                         BluetoothGattCharacteristic characteristic) {
+                    Log.d(TAG, "onCharacteristicReadRequest() called");
                     if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
                         byte[] value = Arrays.copyOfRange(getLocalPeerID().getBytes(), offset, getLocalPeerID().length());
                         Log.d(TAG, "onCharacteristicReadRequest(): offset: " + offset + " value: " + value);
                         mBluetoothGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                        PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
+                        if (peerDevice == null) {
+                            Log.e(TAG, "onCharacteristicReadRequest error: device not found in the DeviceManager");
+                            return ;
+                        }
+                        peerDevice.setReadServerPeerID(true);
                     }
                 }
             };

@@ -22,10 +22,12 @@ public class Scanner extends ScanCallback {
 
     private Context mContext;
     private DeviceManager mDeviceManager;
+    private PeerManager mPeerManager;
 
-    public Scanner (Context context, DeviceManager deviceManager) {
+    public Scanner (Context context, DeviceManager deviceManager, PeerManager peerManager) {
         mContext = context;
         mDeviceManager = deviceManager;
+        mPeerManager = peerManager;
         mContext.registerReceiver(mBroadcastReceiver, buildIntentFilter());
     }
 
@@ -105,13 +107,13 @@ public class Scanner extends ScanCallback {
 
         if (peerDevice == null) {
             Log.i(TAG, "parseResult() scanned a new device: " + device.getAddress());
-            peerDevice = new PeerDevice(mContext, device);
+            peerDevice = new PeerDevice(mContext, device, mPeerManager);
             mDeviceManager.addDevice(peerDevice);
         }
         if (peerDevice.isDisconnected()) {
             // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
             peerDevice.setState(PeerDevice.STATE_CONNECTING);
-            peerDevice.asyncConnectionToDevice("parseResult(), known device");
+            peerDevice.asyncConnectionToDevice();
         }
     }
 

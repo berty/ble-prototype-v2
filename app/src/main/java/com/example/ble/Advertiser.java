@@ -12,7 +12,7 @@ public class Advertiser extends AdvertiseCallback {
         return new AdvertiseData.Builder()
                 .setIncludeDeviceName(false)
                 .setIncludeTxPowerLevel(false)
-                .addServiceUuid(BleDriver.P_SERVICE_UUID)
+                .addServiceUuid(GattServer.P_SERVICE_UUID)
                 .build();
     }
 

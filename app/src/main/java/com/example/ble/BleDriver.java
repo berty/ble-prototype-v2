@@ -34,40 +34,22 @@ import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_WRITE;
 import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
 import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_WRITE;
 import static android.bluetooth.BluetoothGattService.SERVICE_TYPE_PRIMARY;
-import static android.content.Context.BLUETOOTH_SERVICE;
 
 public class BleDriver {
     private final String TAG = BleDriver.class.getSimpleName();
 
-    static final UUID SERVICE_UUID = UUID.fromString("A06C6AB8-886F-4D56-82FC-2CF8610D668D");
-    static final UUID PEER_ID_UUID = UUID.fromString("0EF50D30-E208-4315-B323-D05E0A23E6B5");
-    static final UUID WRITER_UUID = UUID.fromString("000CBD77-8D30-4EFF-9ADD-AC5F10C2CC1B");
-    static final ParcelUuid P_SERVICE_UUID = new ParcelUuid(SERVICE_UUID);
-
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
     static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";
 
-    static final int CALLER_IS_SCANNER = 0;
-    static final int CALLER_IS_GATT_SERVER = 1;
-
-    private Context mAppContext;
+    private static Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
 
-    private final DeviceManager mDeviceManager = new DeviceManager();
+    //private final DeviceManager mDeviceManager = new DeviceManager();
     private PeerManager mPeerManager;
 
-    // GATT service
-    private final BluetoothGattService mService =
-            new BluetoothGattService(SERVICE_UUID, SERVICE_TYPE_PRIMARY);
-    private final BluetoothGattCharacteristic mPeerIDCharacteristic =
-            new BluetoothGattCharacteristic(PEER_ID_UUID, PROPERTY_READ, PERMISSION_READ);
-    private final BluetoothGattCharacteristic mWriterCharacteristic =
-            new BluetoothGattCharacteristic(WRITER_UUID, PROPERTY_WRITE, PERMISSION_WRITE);
-
     // GATT server
-    private BluetoothGattServer mBluetoothGattServer;
-    private boolean mGattServerState;
-    private Thread mGattServerThread;
+    private GattServer mGattServer;
+    private GattServerCallback mGattServerCallback;
 
     // Scanning
     // API level 21
@@ -107,11 +89,18 @@ public class BleDriver {
             return ;
         }
         if ((mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()) == null) {
-            Log.d(TAG, "BleDriver constructor: bluetooth not supported on this hardware platform");
+            Log.e(TAG, "BleDriver constructor: bluetooth not supported on this hardware platform");
             return ;
         } else {
             Log.d(TAG, "BleDriver constructor: bluetooth is supported on this hardware platform");
         }
+
+        // Setup context dependant objects
+        JavaToGo.setContext(mAppContext);
+        mPeerManager = new PeerManager(mAppContext);
+        mGattServer = new GattServer(mAppContext);
+        mGattServerCallback = new GattServerCallback(mAppContext, mGattServer);
+
         if ((mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner()) == null) {
             Log.i(TAG, "BleDriver constructor: scanning mode not supported");
         }
@@ -119,9 +108,7 @@ public class BleDriver {
             Log.i(TAG, "BleDriver constructor: advertising mode not supported");
         }
         // is the right place? Context must not be null!
-        JavaToGo.setContext(mAppContext);
-        mPeerManager = new PeerManager(mAppContext);
-        mScanCallback = new Scanner(mAppContext, mDeviceManager, mPeerManager);
+        mScanCallback = new Scanner(mAppContext);
         // Init ok, set driver to the ready state
         mDriverState = DRIVER_STATE_INIT;
     }
@@ -143,11 +130,7 @@ public class BleDriver {
             Log.d(TAG, "StartBleDriver(): device's bluetooth module is disabled");
             return false;
         }
-        if (!setupGattService(localPeerID)) {
-            Log.e(TAG, "StartBleDriver() error: setup Gatt service");
-            return false;
-        }
-        if (!setupGattServer()) {
+        if (!mGattServer.start(localPeerID, mGattServerCallback)) {
             Log.e(TAG, "StartBleDriver() error: setup Gatt server");
             return false;
         }
@@ -167,8 +150,8 @@ public class BleDriver {
         mAppContext.unregisterReceiver(mBroadcastReceiver);
         setAdvertising(false);
         setScanning(false);
-        mDeviceManager.closeAllDeviceConnections();
-        closeGattServer();
+        DeviceManager.closeAllDeviceConnections();
+        mGattServer.stop();
         mDriverState = DRIVER_STATE_STOPPED;
     }
 
@@ -206,60 +189,6 @@ public class BleDriver {
             return ;
         }
         setAdvertising(false);
-    }
-
-    private boolean setupGattService(String localPeerID) {
-        Log.d(TAG, "setupGattService() called");
-        // probably not necessary
-        setLocalPeerID(localPeerID);
-        mPeerIDCharacteristic.setValue(localPeerID);
-        Log.d(TAG, "peerID: " + mPeerIDCharacteristic.getStringValue(0));
-        if (!mService.addCharacteristic(mPeerIDCharacteristic)
-                        || !mService.addCharacteristic(mWriterCharacteristic)) {
-            Log.e(TAG, "setupService() failed: can't add characteristics to service");
-            return false;
-        }
-        return true;
-    }
-
-    // After adding a new service, the success of this operation will be given to the callback
-    // BluetoothGattServerCallback#onServiceAdded. It's only after this callback that the server
-    // will be ready.
-    private boolean setupGattServer() {
-        final BluetoothManager bluetoothManager;
-
-        Log.d(TAG, "setupGattServer() called in thread " + Thread.currentThread().getName());
-        if (mBluetoothGattServer != null)
-            return (true);
-        if ((bluetoothManager = (BluetoothManager)mAppContext.getSystemService(BLUETOOTH_SERVICE)) == null) {
-            Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
-            return false;
-        }
-        mGattServerThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                mBluetoothGattServer = bluetoothManager.openGattServer(mAppContext, mBluetoothGattServerCallback);
-                if (!mBluetoothGattServer.addService(mService)) {
-                    Log.e(TAG, "setupGattServer() error: cannot add a new service");
-                    mBluetoothGattServer = null;
-                }
-            }
-        });
-        mGattServerThread.start();
-        return true;
-    }
-
-    private void closeGattServer() {
-        mBluetoothGattServer.close();
-        mBluetoothGattServer = null;
-    }
-
-    public void setGattServerState(boolean state) {
-        mGattServerState = state;
-    }
-
-    public boolean getGattServerState() {
-        return mGattServerState;
     }
 
     // Android only provides a way to know if startScan has failed so we set the scanning state
@@ -318,10 +247,6 @@ public class BleDriver {
         return mAdvertising;
     }
 
-    private void setLocalPeerID(String localPeerID) { mPeerIDCharacteristic.setValue(localPeerID); }
-
-    private String getLocalPeerID() { return mPeerIDCharacteristic.getStringValue(0); }
-
     private static IntentFilter makeIntentFilter() {
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_PEER_FOUND);
@@ -338,56 +263,7 @@ public class BleDriver {
         }
     };
 
-    private BluetoothGattServerCallback mBluetoothGattServerCallback =
-            new BluetoothGattServerCallback() {
-                @Override
-                public void onServiceAdded(int status, BluetoothGattService service) {
-                    Log.d(TAG, "onServiceAdded() called in thread " + Thread.currentThread().getName());
-                    super.onServiceAdded(status, service);
-                    if (status != BluetoothGatt.GATT_SUCCESS) {
-                        Log.e(TAG, "onServiceAdded error: failed to add service " + service);
-                        closeGattServer();
-                    }
-                }
-
-                @Override
-                public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
-                    Log.v(TAG, "onConnectionStateChange() called with device: " + device + " with newState: " + newState);
-
-                    if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        Log.v(TAG, "connected");
-                        PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
-
-                        if (peerDevice == null) {
-                            Log.i(TAG, "onConnectionStateChange(): a new device is connected: " + device.getAddress());
-                            peerDevice = new PeerDevice(mAppContext, device, mPeerManager);
-                            mDeviceManager.addDevice(peerDevice);
-                        }
-                        if (peerDevice.isDisconnected()) {
-                            // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
-                            peerDevice.setState(PeerDevice.STATE_CONNECTING);
-                            peerDevice.asyncConnectionToDevice();
-                        }
-                    }
-                }
-
-                @Override
-                public void onCharacteristicReadRequest(BluetoothDevice device,
-                                                        int requestId,
-                                                        int offset,
-                                                        BluetoothGattCharacteristic characteristic) {
-                    Log.d(TAG, "onCharacteristicReadRequest() called");
-                    if (characteristic.getUuid().equals(BleDriver.PEER_ID_UUID)) {
-                        byte[] value = Arrays.copyOfRange(getLocalPeerID().getBytes(), offset, getLocalPeerID().length());
-                        Log.d(TAG, "onCharacteristicReadRequest(): offset: " + offset + " value: " + value);
-                        mBluetoothGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
-                        PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
-                        if (peerDevice == null) {
-                            Log.e(TAG, "onCharacteristicReadRequest error: device not found in the DeviceManager");
-                            return ;
-                        }
-                        peerDevice.setReadServerPeerID(true);
-                    }
-                }
-            };
+    public static Context getContext() {
+        return mAppContext;
+    }
 }

@@ -21,13 +21,9 @@ public class Scanner extends ScanCallback {
     private static final String TAG = Scanner.class.getSimpleName();
 
     private Context mContext;
-    private DeviceManager mDeviceManager;
-    private PeerManager mPeerManager;
 
-    public Scanner (Context context, DeviceManager deviceManager, PeerManager peerManager) {
+    public Scanner (Context context) {
         mContext = context;
-        mDeviceManager = deviceManager;
-        mPeerManager = peerManager;
         mContext.registerReceiver(mBroadcastReceiver, buildIntentFilter());
     }
 
@@ -39,7 +35,7 @@ public class Scanner extends ScanCallback {
 
     static ScanFilter buildScanFilter() {
         return new ScanFilter.Builder()
-                .setServiceUuid(BleDriver.P_SERVICE_UUID)
+                .setServiceUuid(GattServer.P_SERVICE_UUID)
                 .build();
     }
 
@@ -103,12 +99,12 @@ public class Scanner extends ScanCallback {
         Log.v(TAG, "parseResult() called with device: " + result.getDevice());
 
         BluetoothDevice device = result.getDevice();
-        PeerDevice peerDevice = mDeviceManager.get(device.getAddress());
+        PeerDevice peerDevice = DeviceManager.get(device.getAddress());
 
         if (peerDevice == null) {
             Log.i(TAG, "parseResult() scanned a new device: " + device.getAddress());
-            peerDevice = new PeerDevice(mContext, device, mPeerManager);
-            mDeviceManager.addDevice(peerDevice);
+            peerDevice = new PeerDevice(mContext, device);
+            DeviceManager.addDevice(peerDevice);
         }
         if (peerDevice.isDisconnected()) {
             // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
@@ -123,7 +119,7 @@ public class Scanner extends ScanCallback {
             String action = intent.getAction();
             String macAddress = intent.getStringExtra(BleDriver.EXTRA_DATA);
             PeerDevice device;
-            if ((device = mDeviceManager.get(macAddress)) == null) {
+            if ((device = DeviceManager.get(macAddress)) == null) {
                 Log.e(TAG, "onReceive error: unknown device");
                 return ;
             }

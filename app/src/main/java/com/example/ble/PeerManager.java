@@ -10,14 +10,14 @@ import java.util.UUID;
 public class PeerManager {
     private static final String TAG = PeerManager.class.getSimpleName();
 
-    private HashMap<UUID, Peer> mPeers = new HashMap<>();
-    private Context mContext;
+    private static HashMap<UUID, Peer> mPeers = new HashMap<>();
+    private static Context mContext;
 
     public PeerManager(Context context) {
         mContext = context;
     }
 
-    private class Peer {
+    private static class Peer {
         private UUID mPeerID;
         private boolean mIsReady = false;
 
@@ -47,19 +47,7 @@ public class PeerManager {
         }
     }
 
-    public synchronized Peer put(UUID key, Peer value) {
-        Log.d(TAG, "put() called");
-        Peer peer = mPeers.get(key);
-        if (peer == null) {
-            Log.d(TAG, "put(): peer unknown");
-            return mPeers.put(key, value);
-        } else {
-            Log.d(TAG, "put(): peer already known");
-            return peer;
-        }
-    }
-
-    public synchronized void set(UUID key, boolean ready) {
+    public static synchronized void set(UUID key, boolean ready) {
         Log.d(TAG, "set() called");
         Peer peer;
 
@@ -71,16 +59,5 @@ public class PeerManager {
             Log.d(TAG, "set(): peer known");
         }
         peer.setIsReady(ready);
-    }
-
-    public synchronized Peer get(UUID key) {
-        Log.d(TAG, "get() called");
-        Peer peer = mPeers.get(key);
-        if (peer != null) {
-            Log.d(TAG, "get(): peer found");
-        } else {
-            Log.d(TAG, "get(): peer not found");
-        }
-        return peer;
     }
 }

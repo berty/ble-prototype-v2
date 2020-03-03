@@ -11,9 +11,9 @@ import java.util.Map;
 public class DeviceManager {
     private static final String TAG = DeviceManager.class.getSimpleName();
 
-    private HashMap<String, PeerDevice> mPeerDevices = new HashMap<>();
+    private static HashMap<String, PeerDevice> mPeerDevices = new HashMap<>();
 
-    public synchronized PeerDevice put(String key, PeerDevice value) {
+    public static synchronized PeerDevice put(String key, PeerDevice value) {
         Log.d(TAG, "put() called");
         PeerDevice peerDevice = mPeerDevices.get(key);
         if (peerDevice == null) {
@@ -25,7 +25,7 @@ public class DeviceManager {
         }
     }
 
-    public synchronized PeerDevice get(String key) {
+    public static synchronized PeerDevice get(String key) {
         Log.d(TAG, "get() called");
         PeerDevice peerDevice = mPeerDevices.get(key);
         if (peerDevice != null) {
@@ -36,7 +36,7 @@ public class DeviceManager {
         return peerDevice;
     }
 
-    public void closeAllDeviceConnections() {
+    public static synchronized void closeAllDeviceConnections() {
         Iterator iterator = mPeerDevices.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry mapElement = (Map.Entry)iterator.next();
@@ -45,7 +45,7 @@ public class DeviceManager {
         }
     }
 
-    public PeerDevice addDevice(@NonNull PeerDevice peerDevice) {
+    public static PeerDevice addDevice(@NonNull PeerDevice peerDevice) {
         String key = peerDevice.getMACAddress();
         return put(key, peerDevice);
     }

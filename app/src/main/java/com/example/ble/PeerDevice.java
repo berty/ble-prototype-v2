@@ -154,6 +154,8 @@ public class PeerDevice {
             mHasReadClientPeerID = value;
             if (mHasReadServerPeerID) {
                 mPeerManager.set(getPeerID(), true);
+            } else {
+                mPeerManager.set(getPeerID(), false);
             }
         }
     }

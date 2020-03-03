@@ -19,11 +19,10 @@ public class PeerManager {
 
     private class Peer {
         private UUID mPeerID;
-        private boolean mIsReady;
+        private boolean mIsReady = false;
 
-        public Peer(UUID peerID, boolean ready) {
+        public Peer(UUID peerID) {
             mPeerID = peerID;
-            mIsReady = ready;
         }
 
         public UUID getPeerID() {
@@ -36,9 +35,11 @@ public class PeerManager {
 
         // if the device is ready, send a signal to HandlePeerFound
         public void setIsReady(boolean ready) {
-            mIsReady = ready;
-            if (ready) {
+            Log.d(TAG, "setIsReady() called: " + ready);
+            if (ready && !mIsReady) {
+                mIsReady = true;
                 // example of signal
+                Log.d(TAG, "setIsReady() ok: " + getPeerID());
                 Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
                 intent.putExtra(BleDriver.EXTRA_DATA, getPeerID().toString());
                 mContext.sendBroadcast(intent);
@@ -64,12 +65,12 @@ public class PeerManager {
 
         if ((peer = mPeers.get(key)) == null) {
             Log.d(TAG, "set(): peer unknown");
-            peer = new Peer(key, ready);
+            peer = new Peer(key);
             mPeers.put(key, peer);
         } else {
             Log.d(TAG, "set(): peer known");
-            peer.setIsReady(ready);
         }
+        peer.setIsReady(ready);
     }
 
     public synchronized Peer get(UUID key) {

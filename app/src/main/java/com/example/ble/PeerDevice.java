@@ -7,20 +7,21 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
-import android.content.Intent;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 
 public class PeerDevice {
     private static final String TAG = PeerDevice.class.getSimpleName();
 
     public static final String ACTION_STATE_CONNECTED = "peerDevice.STATE_CONNECTED";
     public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
+    // Max MTU requested according to Bluetooth 5.1 Core Specification
+    // https://interrupt.memfault.com/blog/ble-throughput-primer#attribute-protocol-att-packet
+    public static final int REQUEST_MTU = 512;
 
     public static final int STATE_DISCONNECTED = 0;
     public static final int STATE_CONNECTED = 1;
@@ -35,6 +36,7 @@ public class PeerDevice {
     private Thread mThread;
     private final Object mLockState = new Object();
     private final Object mLockReadPeerID = new Object();
+    private final Object mLockMtu = new Object();
 
     private BluetoothGattService mBertyService;
     private BluetoothGattCharacteristic mPeerIDCharacteristic;
@@ -43,6 +45,9 @@ public class PeerDevice {
     private UUID mPeerID;
     private boolean mHasReadServerPeerID;
     private boolean mHasReadClientPeerID;
+    //private int mMtu = 0;
+    // default MTU is 23
+    private int mMtu = 23;
 
     public PeerDevice(@NonNull Context context, @NonNull BluetoothDevice bluetoothDevice) {
         mContext = context;
@@ -245,6 +250,18 @@ public class PeerDevice {
         return true;
     }
 
+    public void setMtu(int mtu) {
+        synchronized (mLockMtu) {
+            mMtu = mtu;
+        }
+    }
+
+    public int getMtu() {
+        synchronized (mLockMtu) {
+            return mMtu;
+        }
+    }
+
     private BluetoothGattCallback mGattCallback =
             new BluetoothGattCallback() {
                 @Override
@@ -254,7 +271,8 @@ public class PeerDevice {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): connected");
                         setState(STATE_CONNECTED);
-                        gatt.discoverServices();
+                        gatt.requestMtu(REQUEST_MTU);
+                        //gatt.discoverServices();
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): disconnected");
                         setState(STATE_DISCONNECTED);
@@ -298,6 +316,22 @@ public class PeerDevice {
                             setReadClientPeerID(true);
                         }
                     }
+                }
+
+                @Override
+                public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
+                    Log.d(TAG, "onMtuChanged() called: " + mtu);
+                    PeerDevice peerDevice;
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        Log.e(TAG, "onMtuChanged() error: transmission error");
+                        return ;
+                    }
+                    if ((peerDevice = DeviceManager.get(gatt.getDevice().getAddress())) == null) {
+                        Log.e(TAG, "onMtuChanged() error: device not found");
+                        return ;
+                    }
+                    peerDevice.setMtu(mtu);
+                    gatt.discoverServices();
                 }
             };
 }

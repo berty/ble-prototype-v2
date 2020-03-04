@@ -18,9 +18,6 @@ public class GattServerCallback extends BluetoothGattServerCallback {
     private Context mContext;
     private GattServer mGattServer;
 
-    // Static variable used to check if the whole peerID was read by remote device
-    static int readCount = 0;
-
     public GattServerCallback(Context context, GattServer gattServer) {
         mContext = context;
         mGattServer = gattServer;
@@ -65,18 +62,41 @@ public class GattServerCallback extends BluetoothGattServerCallback {
                                             int offset,
                                             BluetoothGattCharacteristic characteristic) {
         Log.d(TAG, "onCharacteristicReadRequest() called");
+        boolean full = false;
+        PeerDevice peerDevice;
+        byte[] value;
+        int length = 0;
+
+        if ((peerDevice = DeviceManager.get(device.getAddress())) == null) {
+            Log.e(TAG, "onCharacteristicReadRequest() error: device not found");
+            mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE,
+                    0, null);
+            return ;
+        }
         if (characteristic.getUuid().equals(GattServer.PEER_ID_UUID)) {
             String peerID = characteristic.getStringValue(0);
-            Log.d(TAG, "onCharacteristicReadRequest(): peerID is " + peerID);
-            byte[] value = Arrays.copyOfRange(peerID.getBytes(), offset, peerID.length());
-            Log.d(TAG, "onCharacteristicReadRequest(): offset: " + offset + " value: " + value);
-            mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
-            PeerDevice peerDevice = DeviceManager.get(device.getAddress());
-            if (peerDevice == null) {
-                Log.e(TAG, "onCharacteristicReadRequest error: device not found in the DeviceManager");
-                return ;
+            if ((peerID.length() - offset) <= peerDevice.getMtu() - 1) {
+                Log.d(TAG, "onCharacteristicReadRequest(): mtu is big enough");
+                full = true;
+            } else {
+                Log.d(TAG, "onCharacteristicReadRequest(): mtu is too small");
             }
-            peerDevice.setReadServerPeerID(true);
+            value = Arrays.copyOfRange(peerID.getBytes(), offset, peerID.length());
+            mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+            if (full) {
+                peerDevice.setReadServerPeerID(true);
+            }
         }
+    }
+
+    @Override
+    public void onMtuChanged(BluetoothDevice device, int mtu) {
+        Log.d(TAG, "onMtuChanged() called: " + mtu);
+        PeerDevice peerDevice;
+        if ((peerDevice = DeviceManager.get(device.getAddress())) == null) {
+            Log.e(TAG, "onMtuChanged() error: device not found");
+            return ;
+        }
+        peerDevice.setMtu(mtu);
     }
 }

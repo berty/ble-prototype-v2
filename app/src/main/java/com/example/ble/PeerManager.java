@@ -1,5 +1,6 @@
 package com.example.ble;
 
+import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
@@ -17,47 +18,32 @@ public class PeerManager {
         mContext = context;
     }
 
-    private static class Peer {
-        private UUID mPeerID;
-        private boolean mIsReady = false;
 
-        public Peer(UUID peerID) {
-            mPeerID = peerID;
-        }
-
-        public UUID getPeerID() {
-            return mPeerID;
-        }
-
-        public boolean isReady() {
-            return (mIsReady == true);
-        }
-
-        // if the device is ready, send a signal to HandlePeerFound
-        public void setIsReady(boolean ready) {
-            Log.d(TAG, "setIsReady() called: " + ready);
-            if (ready && !mIsReady) {
-                mIsReady = true;
-                // example of signal
-                Log.d(TAG, "setIsReady() ok: " + getPeerID());
-                Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
-                intent.putExtra(BleDriver.EXTRA_DATA, getPeerID().toString());
-                mContext.sendBroadcast(intent);
-            }
-        }
-    }
-
-    public static synchronized void set(UUID key, boolean ready) {
+    public static synchronized void set(UUID key, boolean ready, PeerDevice peerDevice) {
         Log.d(TAG, "set() called");
         Peer peer;
 
         if ((peer = mPeers.get(key)) == null) {
             Log.d(TAG, "set(): peer unknown");
-            peer = new Peer(key);
+            peer = new Peer(key, ready, peerDevice);
             mPeers.put(key, peer);
+            sendMessage(peerDevice.getPeerID().toString());
         } else {
             Log.d(TAG, "set(): peer known");
+            peer.setIsReady(ready);
+            peer.setPeerDevice(peerDevice);
         }
-        peer.setIsReady(ready);
+    }
+
+    public static synchronized Peer get(UUID key) {
+        return mPeers.get(key);
+    }
+
+    private static void sendMessage(String peerID) {
+        // example of signal
+        Log.d(TAG, "sendMessage() ok: " + peerID);
+        Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
+        intent.putExtra(BleDriver.EXTRA_DATA, peerID);
+        mContext.sendBroadcast(intent);
     }
 }

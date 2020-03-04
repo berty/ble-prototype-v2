@@ -155,9 +155,9 @@ public class PeerDevice {
         synchronized (mLockReadPeerID) {
             mHasReadClientPeerID = value;
             if (mHasReadServerPeerID) {
-                PeerManager.set(getPeerID(), true);
+                PeerManager.set(getPeerID(), true, this);
             } else {
-                PeerManager.set(getPeerID(), false);
+                PeerManager.set(getPeerID(), false, this);
             }
         }
     }
@@ -173,7 +173,7 @@ public class PeerDevice {
         synchronized (mLockReadPeerID) {
             mHasReadServerPeerID = value;
             if (mHasReadClientPeerID) {
-                PeerManager.set(getPeerID(), true);
+                PeerManager.set(getPeerID(), true, this);
             }
         }
     }

@@ -9,6 +9,8 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.util.Log;
 
+import androidx.lifecycle.GeneratedAdapter;
+
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -86,6 +88,34 @@ public class GattServerCallback extends BluetoothGattServerCallback {
             if (full) {
                 peerDevice.setReadServerPeerID(true);
             }
+        } else {
+            mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE,
+                    0, null);
+        }
+    }
+
+    @Override
+    public void onCharacteristicWriteRequest(BluetoothDevice device,
+                                             int requestId,
+                                             BluetoothGattCharacteristic characteristic,
+                                             boolean prepareWrite,
+                                             boolean responseNeeded,
+                                             int offset,
+                                             byte[] value) {
+        super.onCharacteristicWriteRequest(device, requestId, characteristic, prepareWrite,
+                responseNeeded, offset, value);
+        PeerDevice peerDevice;
+
+        if ((peerDevice = DeviceManager.get(device.getAddress())) == null) {
+            Log.e(TAG, "onCharacteristicWriteRequest() error: device not found");
+            if (responseNeeded) {
+                mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE,
+                        0, null);
+            }
+            return ;
+        }
+        if (characteristic.getUuid().equals(GattServer.WRITER_UUID)) {
+            Log.d(TAG, "onCharacteristicWriteRequest(): value is " + new String(value) + " and characteristic value is " + characteristic.getStringValue(0));
         }
     }
 

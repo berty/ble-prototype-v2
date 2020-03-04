@@ -2,6 +2,7 @@ package com.example.ble;
 
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 public class JavaToGo {
     private static final String TAG = JavaToGo.class.getSimpleName();
@@ -12,9 +13,12 @@ public class JavaToGo {
     private static Context mContext;
 
     public static boolean handleFoundPeer(String peerID) {
+        Log.d(TAG, "handleFoundPeer() called");
+
         Intent intent = new Intent(INTERFACE_FOUND_PEER);
         intent.putExtra(INTERFACE_EXTRA_DATA, peerID);
         mContext.sendBroadcast(intent);
+        BleDriver.SendToPeer(peerID, "Hello World!".getBytes());
         return true;
     }
 

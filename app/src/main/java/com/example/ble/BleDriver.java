@@ -3,15 +3,8 @@ package com.example.ble;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattServer;
-import android.bluetooth.BluetoothGattServerCallback;
-import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
@@ -22,26 +15,18 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.ParcelUuid;
 import android.util.Log;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
 
-import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_READ;
-import static android.bluetooth.BluetoothGattCharacteristic.PERMISSION_WRITE;
-import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
-import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_WRITE;
-import static android.bluetooth.BluetoothGattService.SERVICE_TYPE_PRIMARY;
-
 public class BleDriver {
-    private final String TAG = BleDriver.class.getSimpleName();
+    private static final String TAG = BleDriver.class.getSimpleName();
 
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
     static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";
 
-    private static Context mAppContext;
+    private Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
 
     //private final DeviceManager mDeviceManager = new DeviceManager();
@@ -253,6 +238,31 @@ public class BleDriver {
         return filter;
     }
 
+    public static boolean SendToPeer(String remotePID, byte[] payload) {
+        Log.d(TAG, "SendToPeer() called");
+        Peer peer = PeerManager.get(UUID.fromString(remotePID));
+        PeerDevice peerDevice;
+        BluetoothGatt gatt;
+        BluetoothGattCharacteristic writer;
+
+        if (peer == null) {
+            Log.e(TAG, "SendToPeer() error: peer not found");
+            return false;
+        }
+        if ((peerDevice = peer.getPeerDevice()) == null) {
+            Log.e(TAG, "SendToPeer() error: no device found");
+            return false;
+        }
+        if ((gatt = peer.getPeerDevice().getBluetoothGatt()) == null) {
+            Log.e(TAG, "SendToPeer() error: no connection found");
+            return false;
+        }
+        writer = peerDevice.getWriterCharacteristic();
+        writer.setValue(payload);
+        gatt.writeCharacteristic(writer);
+        return false;
+    }
+
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -262,8 +272,4 @@ public class BleDriver {
             JavaToGo.handleFoundPeer(peerID);
         }
     };
-
-    public static Context getContext() {
-        return mAppContext;
-    }
 }

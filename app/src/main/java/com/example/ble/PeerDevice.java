@@ -21,6 +21,7 @@ public class PeerDevice {
     public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
     // Max MTU requested according to Bluetooth 5.1 Core Specification
     // https://interrupt.memfault.com/blog/ble-throughput-primer#attribute-protocol-att-packet
+    //public static final int REQUEST_MTU = 512;
     public static final int REQUEST_MTU = 512;
 
     public static final int STATE_DISCONNECTED = 0;
@@ -132,6 +133,10 @@ public class PeerDevice {
 
     public BluetoothGattCharacteristic getWriterCharacteristic() {
         return mWriterCharacteristic;
+    }
+
+    public boolean updateWriterValue(String value) {
+        return getWriterCharacteristic().setValue(value);
     }
 
     public BluetoothGattService getBertyService() {
@@ -316,6 +321,13 @@ public class PeerDevice {
                             setReadClientPeerID(true);
                         }
                     }
+                }
+
+                @Override
+                public void onCharacteristicWrite (BluetoothGatt gatt,
+                                                   BluetoothGattCharacteristic characteristic,
+                                                   int status) {
+                    super.onCharacteristicWrite(gatt, characteristic, status);
                 }
 
                 @Override

@@ -55,8 +55,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            String peerID = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA);
-            addScanEntry(action + ": " + peerID);
+            String peerID = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA_PID);
+            String data = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA);
+            addScanEntry(action + ": " + peerID + ": data: " + data);
         }
     };
 
@@ -133,7 +134,9 @@ public class MainActivity extends AppCompatActivity {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, ENABLE_BT_REQUEST);
         }
-        getApplicationContext().registerReceiver(mBroadcastReceiver, new IntentFilter(JavaToGo.INTERFACE_FOUND_PEER));
+        IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_FOUND_PEER);
+        filter.addAction(JavaToGo.INTERFACE_RECEIVE_FROM_PEER);
+        getApplicationContext().registerReceiver(mBroadcastReceiver, filter);
     }
 
     private boolean hasPermission(String permission) {

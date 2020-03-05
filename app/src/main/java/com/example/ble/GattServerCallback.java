@@ -20,9 +20,21 @@ public class GattServerCallback extends BluetoothGattServerCallback {
     private Context mContext;
     private GattServer mGattServer;
 
+    private byte[] mBuffer;
+
     public GattServerCallback(Context context, GattServer gattServer) {
         mContext = context;
         mGattServer = gattServer;
+    }
+
+    private void addToBuffer(byte[] value) {
+        if (mBuffer == null) {
+            mBuffer = new byte[0];
+        }
+        byte[] tmp = new byte[mBuffer.length + value.length];
+        System.arraycopy(mBuffer, 0, tmp, 0, mBuffer.length);
+        System.arraycopy(value, 0, tmp, mBuffer.length, value.length);
+        mBuffer = tmp;
     }
 
     @Override
@@ -105,18 +117,54 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         super.onCharacteristicWriteRequest(device, requestId, characteristic, prepareWrite,
                 responseNeeded, offset, value);
         PeerDevice peerDevice;
+        boolean status = false;
 
+        Log.d(TAG, "onCharacteristicWriteRequest() called");
         if ((peerDevice = DeviceManager.get(device.getAddress())) == null) {
             Log.e(TAG, "onCharacteristicWriteRequest() error: device not found");
-            if (responseNeeded) {
-                mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE,
-                        0, null);
+        } else if (peerDevice.getPeerID() == null) {
+            Log.e(TAG, "onCharacteristicWriteRequest() error: device not ready");
+        } else {
+            if (characteristic.getUuid().equals(GattServer.WRITER_UUID)) {
+                Log.d(TAG, "onCharacteristicWriteRequest(): value is \"" + new String(value) + "\", offset: " + offset + ", preparedWrite: " + prepareWrite + ", needResponse: " + responseNeeded);
+                if (prepareWrite) {
+                    addToBuffer(value);
+                    status = true;
+                } else {
+                    status = peerDevice.updateWriterValue(new String(value));
+                    JavaToGo.ReceiveFromPeer(peerDevice.getPeerID().toString(), value);
+                }
             }
-            return ;
         }
-        if (characteristic.getUuid().equals(GattServer.WRITER_UUID)) {
-            Log.d(TAG, "onCharacteristicWriteRequest(): value is " + new String(value) + " and characteristic value is " + characteristic.getStringValue(0));
+        if (responseNeeded && status) {
+            mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS,
+                    offset, value);
+        } else if (responseNeeded) {
+            mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE,
+                    0, null);
         }
+    }
+
+    @Override
+    public void onExecuteWrite(BluetoothDevice device, int requestId, boolean execute) {
+        Log.d(TAG, "onExecuteWrite called(): " + execute);
+        PeerDevice peerDevice;
+
+        if (execute) {
+            if (mBuffer != null) {
+                if (((peerDevice = DeviceManager.get(device.getAddress())) == null)
+                        || !peerDevice.updateWriterValue(new String(mBuffer))) {
+                    mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_FAILURE,
+                            0, null);
+                    mBuffer = null;
+                    return ;
+                }
+                JavaToGo.ReceiveFromPeer(peerDevice.getPeerID().toString(), mBuffer);
+            }
+        }
+        mBuffer = null;
+        mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS,
+                0, null);
     }
 
     @Override

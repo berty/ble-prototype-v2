@@ -27,11 +27,14 @@ public class PeerManager {
             Log.d(TAG, "set(): peer unknown");
             peer = new Peer(key, ready, peerDevice);
             mPeers.put(key, peer);
-            sendMessage(peerDevice.getPeerID().toString());
         } else {
             Log.d(TAG, "set(): peer known");
             peer.setIsReady(ready);
             peer.setPeerDevice(peerDevice);
+        }
+        if (ready && !peer.isAlreadyFound()) {
+            peer.setAlreadyFound(true);
+            sendMessage(peerDevice.getPeerID().toString());
         }
     }
 

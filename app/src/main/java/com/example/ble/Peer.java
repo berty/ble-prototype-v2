@@ -12,6 +12,7 @@ public class Peer {
 
     private UUID mPeerID;
     private boolean mIsReady = false;
+    private boolean mAlreadyFound = false;
     private PeerDevice mPeerDevice;
 
     public Peer(UUID peerID, boolean ready, PeerDevice peerDevice) {
@@ -26,6 +27,14 @@ public class Peer {
 
     public synchronized boolean isReady() {
         return (mIsReady == true);
+    }
+
+    public synchronized void setAlreadyFound(boolean status) {
+        mAlreadyFound = status;
+    }
+
+    public synchronized boolean isAlreadyFound() {
+        return mAlreadyFound == true;
     }
 
     public synchronized void setPeerDevice(PeerDevice peerDevice) {

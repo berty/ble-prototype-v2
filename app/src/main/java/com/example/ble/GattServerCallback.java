@@ -9,13 +9,10 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.util.Log;
 
-import androidx.lifecycle.GeneratedAdapter;
-
 import java.util.Arrays;
-import java.util.UUID;
 
 public class GattServerCallback extends BluetoothGattServerCallback {
-    private static final String TAG = GattServerCallback.class.getSimpleName();
+    private static final String TAG = "GattServerCallback";
 
     private Context mContext;
     private GattServer mGattServer;

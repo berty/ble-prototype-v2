@@ -1,27 +1,22 @@
 package com.example.ble;
 
-import android.bluetooth.BluetoothGatt;
-import android.content.Context;
-import android.content.Intent;
 import android.util.Log;
 
-import java.util.UUID;
-
 public class Peer {
-    private static final String TAG = Peer.class.getSimpleName();
+    private static final String TAG = "Peer";
 
-    private UUID mPeerID;
+    private String mPeerID;
     private boolean mIsReady = false;
     private boolean mAlreadyFound = false;
     private PeerDevice mPeerDevice;
 
-    public Peer(UUID peerID, boolean ready, PeerDevice peerDevice) {
+    public Peer(String peerID, boolean ready, PeerDevice peerDevice) {
         mPeerID = peerID;
         mIsReady = ready;
         mPeerDevice = peerDevice;
     }
 
-    public synchronized UUID getPeerID() {
+    public synchronized String getPeerID() {
         return mPeerID;
     }
 

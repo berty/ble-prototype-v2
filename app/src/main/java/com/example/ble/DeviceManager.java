@@ -9,7 +9,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class DeviceManager {
-    private static final String TAG = DeviceManager.class.getSimpleName();
+    private static final String TAG = "DeviceManager";
 
     private static HashMap<String, PeerDevice> mPeerDevices = new HashMap<>();
 

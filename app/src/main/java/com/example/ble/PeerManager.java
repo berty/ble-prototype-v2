@@ -1,17 +1,15 @@
 package com.example.ble;
 
-import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
 import java.util.HashMap;
-import java.util.UUID;
 
 public class PeerManager {
-    private static final String TAG = PeerManager.class.getSimpleName();
+    private static final String TAG = "PeerManager";
 
-    private static HashMap<UUID, Peer> mPeers = new HashMap<>();
+    private static HashMap<String, Peer> mPeers = new HashMap<>();
     private static Context mContext;
 
     public PeerManager(Context context) {
@@ -19,7 +17,7 @@ public class PeerManager {
     }
 
 
-    public static synchronized void set(UUID key, boolean ready, PeerDevice peerDevice) {
+    public static synchronized void set(String key, boolean ready, PeerDevice peerDevice) {
         Log.d(TAG, "set() called");
         Peer peer;
 
@@ -38,7 +36,7 @@ public class PeerManager {
         }
     }
 
-    public static synchronized Peer get(UUID key) {
+    public static synchronized Peer get(String key) {
         return mPeers.get(key);
     }
 

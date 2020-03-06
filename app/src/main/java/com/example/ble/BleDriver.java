@@ -18,10 +18,9 @@ import android.content.IntentFilter;
 import android.util.Log;
 
 import java.util.Collections;
-import java.util.UUID;
 
 public class BleDriver {
-    private static final String TAG = BleDriver.class.getSimpleName();
+    private static final String TAG = "BleDriver";
 
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
     static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";
@@ -54,6 +53,11 @@ public class BleDriver {
     private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
     private static boolean mAdvertising;
 
+    private enum DRIVER_STATE {
+        STOPPED,
+        STARTED
+    }
+
     private static final int DRIVER_STATE_NOT_INIT = 0;
     private static final int DRIVER_STATE_INIT = 1;
     private static final int DRIVER_STATE_STARTED = 2;
@@ -70,14 +74,14 @@ public class BleDriver {
             Application application = (Application) activityThreadClass.getMethod("currentApplication").invoke(null);
             mAppContext = application.getApplicationContext();
         } catch (Exception e) {
-            Log.e(TAG, "BleDriver constructor: context not found");
+            Log.e(TAG, "constructor: context not found");
             return ;
         }
         if ((mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()) == null) {
-            Log.e(TAG, "BleDriver constructor: bluetooth not supported on this hardware platform");
+            Log.e(TAG, "constructor: bluetooth not supported on this hardware platform");
             return ;
         } else {
-            Log.d(TAG, "BleDriver constructor: bluetooth is supported on this hardware platform");
+            Log.d(TAG, "constructor: bluetooth is supported on this hardware platform");
         }
 
         // Setup context dependant objects
@@ -240,27 +244,21 @@ public class BleDriver {
 
     public static boolean SendToPeer(String remotePID, byte[] payload) {
         Log.d(TAG, "SendToPeer() called");
-        Peer peer = PeerManager.get(UUID.fromString(remotePID));
         PeerDevice peerDevice;
-        BluetoothGatt gatt;
         BluetoothGattCharacteristic writer;
+        BluetoothGatt gatt;
 
-        if (peer == null) {
-            Log.e(TAG, "SendToPeer() error: peer not found");
+        try {
+            peerDevice = PeerManager.get(remotePID).getPeerDevice();
+            writer = peerDevice.getWriterCharacteristic();
+            writer.setValue(payload);
+            gatt = peerDevice.getBluetoothGatt();
+            gatt.writeCharacteristic(writer);
+        } catch (NullPointerException e) {
+            Log.e(TAG, "Failed to get BluetoothGatt for peer: " + remotePID);
             return false;
         }
-        if ((peerDevice = peer.getPeerDevice()) == null) {
-            Log.e(TAG, "SendToPeer() error: no device found");
-            return false;
-        }
-        if ((gatt = peer.getPeerDevice().getBluetoothGatt()) == null) {
-            Log.e(TAG, "SendToPeer() error: no connection found");
-            return false;
-        }
-        writer = peerDevice.getWriterCharacteristic();
-        writer.setValue(payload);
-        gatt.writeCharacteristic(writer);
-        return false;
+        return true;
     }
 
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {

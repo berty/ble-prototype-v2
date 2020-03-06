@@ -18,7 +18,7 @@ import java.util.List;
 // see https://stackoverflow.com/questions/27040086/onbatchscanresults-is-not-called-in-android-ble
 
 public class Scanner extends ScanCallback {
-    private static final String TAG = Scanner.class.getSimpleName();
+    private static final String TAG = "Scanner";
 
     private Context mContext;
 

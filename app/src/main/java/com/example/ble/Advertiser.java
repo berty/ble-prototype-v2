@@ -6,7 +6,7 @@ import android.bluetooth.le.AdvertiseSettings;
 import android.util.Log;
 
 public class Advertiser extends AdvertiseCallback {
-    private static final String TAG = Advertiser.class.getSimpleName();
+    private static final String TAG = "Advertiser";
 
     static AdvertiseData buildAdvertiseData() {
         return new AdvertiseData.Builder()

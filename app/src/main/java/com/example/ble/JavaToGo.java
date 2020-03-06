@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.util.Log;
 
 public class JavaToGo {
-    private static final String TAG = JavaToGo.class.getSimpleName();
+    private static final String TAG = "JavaToGo";
 
     public static final String INTERFACE_FOUND_PEER = "BleDriver.INTERFACE_FOUND_PEER";
     public static final String INTERFACE_RECEIVE_FROM_PEER = "BleDriver.INTERFACE_RECEIVE_FROM_PEER";

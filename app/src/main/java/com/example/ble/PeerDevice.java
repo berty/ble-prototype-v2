@@ -12,10 +12,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import java.util.List;
-import java.util.UUID;
 
 public class PeerDevice {
-    private static final String TAG = PeerDevice.class.getSimpleName();
+    private static final String TAG = "PeerDevice";
 
     public static final String ACTION_STATE_CONNECTED = "peerDevice.STATE_CONNECTED";
     public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
@@ -43,7 +42,7 @@ public class PeerDevice {
     private BluetoothGattCharacteristic mPeerIDCharacteristic;
     private BluetoothGattCharacteristic mWriterCharacteristic;
 
-    private UUID mPeerID;
+    private String mPeerID;
     private boolean mHasReadServerPeerID;
     private boolean mHasReadClientPeerID;
     //private int mMtu = 0;
@@ -147,11 +146,11 @@ public class PeerDevice {
         mBertyService = service;
     }
 
-    public void setPeerID(UUID peerID) {
+    public void setPeerID(String peerID) {
         mPeerID = peerID;
     }
 
-    public UUID getPeerID() {
+    public String getPeerID() {
         return mPeerID;
     }
 
@@ -316,7 +315,7 @@ public class PeerDevice {
                                 || peerID.length() == 0) {
                             Log.e(TAG, "takePeerID() error: peerID is null");
                         } else {
-                            setPeerID(UUID.fromString(peerID));
+                            setPeerID(peerID);
                             Log.i(TAG, "takePeerID(): peerID is " + peerID);
                             setReadClientPeerID(true);
                         }

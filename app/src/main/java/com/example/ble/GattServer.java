@@ -1,6 +1,5 @@
 package com.example.ble;
 
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattService;
@@ -19,7 +18,7 @@ import static android.bluetooth.BluetoothGattService.SERVICE_TYPE_PRIMARY;
 import static android.content.Context.BLUETOOTH_SERVICE;
 
 public class GattServer {
-    private final String TAG = GattServer.class.getSimpleName();
+    private final String TAG = "GattServer";
 
     // GATT service UUID
     static final UUID SERVICE_UUID = UUID.fromString("A06C6AB8-886F-4D56-82FC-2CF8610D668D");

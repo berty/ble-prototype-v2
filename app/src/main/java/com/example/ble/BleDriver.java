@@ -19,8 +19,12 @@ import android.util.Log;
 
 import java.util.Collections;
 
+// Make the BleDriver class a Singleton
+// see https://medium.com/@kevalpatel2106/how-to-make-the-perfect-singleton-de6b951dfdb0
 public class BleDriver {
     private static final String TAG = "BleDriver";
+
+    private static volatile BleDriver mBleDriver;
 
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
     static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";

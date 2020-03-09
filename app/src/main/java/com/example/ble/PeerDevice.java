@@ -18,10 +18,10 @@ public class PeerDevice {
 
     public static final String ACTION_STATE_CONNECTED = "peerDevice.STATE_CONNECTED";
     public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
-    // Max MTU requested according to Bluetooth 5.1 Core Specification
-    // https://interrupt.memfault.com/blog/ble-throughput-primer#attribute-protocol-att-packet
-    //public static final int REQUEST_MTU = 512;
-    public static final int REQUEST_MTU = 512;
+
+    // Max MTU requested
+    // See https://chromium.googlesource.com/aosp/platform/system/bt/+/29e794418452c8b35c2d42fe0cda81acd86bbf43/stack/include/gatt_api.h#123
+    private static final int REQUEST_MTU = 517;
 
     public static final int STATE_DISCONNECTED = 0;
     public static final int STATE_CONNECTED = 1;

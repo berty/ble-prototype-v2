@@ -14,6 +14,10 @@ import java.util.Arrays;
 public class GattServerCallback extends BluetoothGattServerCallback {
     private static final String TAG = "GattServerCallback";
 
+    // Size in bytes of the ATT MTU headers
+    // see Bluetooth Core Specification 5.1: 4.8 Characteristic Value Read (p.2380)
+    private static final int ATT_HEADER_READ_SIZE = 1;
+
     private Context mContext;
     private GattServer mGattServer;
 
@@ -76,7 +80,6 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         boolean full = false;
         PeerDevice peerDevice;
         byte[] value;
-        int length = 0;
 
         if ((peerDevice = DeviceManager.get(device.getAddress())) == null) {
             Log.e(TAG, "onCharacteristicReadRequest() error: device not found");
@@ -86,11 +89,11 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         }
         if (characteristic.getUuid().equals(GattServer.PEER_ID_UUID)) {
             String peerID = characteristic.getStringValue(0);
-            if ((peerID.length() - offset) <= peerDevice.getMtu() - 1) {
-                Log.d(TAG, "onCharacteristicReadRequest(): mtu is big enough");
+            if ((peerID.length() - offset) <= peerDevice.getMtu() - ATT_HEADER_READ_SIZE) {
+                Log.d(TAG, "onCharacteristicReadRequest(): mtu is big enough (" + (peerID.length() - offset) + " bytes to read)");
                 full = true;
             } else {
-                Log.d(TAG, "onCharacteristicReadRequest(): mtu is too small");
+                Log.d(TAG, "onCharacteristicReadRequest(): mtu is too small (" + (peerID.length() - offset) + " bytes to read)");
             }
             value = Arrays.copyOfRange(peerID.getBytes(), offset, peerID.length());
             mGattServer.getGattServer().sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
@@ -103,6 +106,11 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         }
     }
 
+    // When receiving data, there are two cases:
+    // * MTU is big enough, thus the whole message is transmitted, prepareWrite is false.
+    // * Otherwise, we need to wait that all packets are transmitted, prepareWrite is true for
+    //   all this transmissions. Data packets are put in a buffer.
+    //   When all packets are sent, onExecuteWrite is called.
     @Override
     public void onCharacteristicWriteRequest(BluetoothDevice device,
                                              int requestId,
@@ -123,7 +131,7 @@ public class GattServerCallback extends BluetoothGattServerCallback {
             Log.e(TAG, "onCharacteristicWriteRequest() error: device not ready");
         } else {
             if (characteristic.getUuid().equals(GattServer.WRITER_UUID)) {
-                Log.d(TAG, "onCharacteristicWriteRequest(): value is \"" + new String(value) + "\", offset: " + offset + ", preparedWrite: " + prepareWrite + ", needResponse: " + responseNeeded);
+                Log.d(TAG, "onCharacteristicWriteRequest(): value is \"" + new String(value) + "\", size: " + value.length + ", offset: " + offset + ", preparedWrite: " + prepareWrite + ", needResponse: " + responseNeeded);
                 if (prepareWrite) {
                     addToBuffer(value);
                     status = true;
@@ -142,6 +150,9 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         }
     }
 
+    // This callback is called when this GATT server has received all incoming data packets of one
+    // transmission.
+    // Thus we know we can handle data put in the buffer.
     @Override
     public void onExecuteWrite(BluetoothDevice device, int requestId, boolean execute) {
         Log.d(TAG, "onExecuteWrite called(): " + execute);

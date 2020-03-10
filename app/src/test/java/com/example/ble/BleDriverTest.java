@@ -1,5 +1,6 @@
 package com.example.ble;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -9,9 +10,17 @@ import static org.junit.Assert.*;
  *
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
-public class ExampleUnitTest {
+public class BleDriverTest {
+    BleDriver mBleDriver;
+
+    @Before
+    public void createBleInstance() {
+        mBleDriver = BleDriver.getInstance();
+        assertNotNull(mBleDriver);
+    }
+
     @Test
-    public void addition_isCorrect() {
+    public void bleDriver_isSetup() {
         assertEquals(4, 2 + 2);
     }
 }

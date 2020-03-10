@@ -11,9 +11,7 @@ import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanSettings;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
 
@@ -196,9 +194,6 @@ public class BleDriver {
             if (!mGattServer.start(localPeerID, mGattServerCallback)) {
                return (mStateStarted = false);
             }
-            mAppContext.registerReceiver(mBroadcastReceiver, makeIntentFilter());
-            //setAdvertising(true);
-            //setScanning(true);
             Log.d(TAG, "StartBleDriver: init completed");
             mStateStarted = true;
         }
@@ -210,7 +205,6 @@ public class BleDriver {
             Log.d(TAG, "driver is not started");
             return ;
         }
-        mAppContext.unregisterReceiver(mBroadcastReceiver);
         setAdvertising(false);
         setScanning(false);
         DeviceManager.closeAllDeviceConnections();
@@ -334,14 +328,4 @@ public class BleDriver {
         }
         return true;
     }
-
-    private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            String peerID = intent.getStringExtra(BleDriver.EXTRA_DATA);
-            Log.d(TAG, "onReceive() called: " + action);
-            JavaToGo.handleFoundPeer(peerID);
-        }
-    };
 }

@@ -14,7 +14,7 @@ public class JavaToGo {
 
     private static Context mContext;
 
-    public static boolean handleFoundPeer(String peerID) {
+    public static boolean HandleFoundPeer(String peerID) {
         Log.d(TAG, "handleFoundPeer() called");
 
         Intent intent = new Intent(INTERFACE_FOUND_PEER);

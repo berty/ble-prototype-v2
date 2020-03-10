@@ -16,18 +16,17 @@ import java.util.List;
 public class PeerDevice {
     private static final String TAG = "PeerDevice";
 
-    public static final String ACTION_STATE_CONNECTED = "peerDevice.STATE_CONNECTED";
-    public static final String ACTION_STATE_DISCONNECTED = "peerDevice.STATE_DISCONNECTED";
-
     // Max MTU requested
     // See https://chromium.googlesource.com/aosp/platform/system/bt/+/29e794418452c8b35c2d42fe0cda81acd86bbf43/stack/include/gatt_api.h#123
     private static final int REQUEST_MTU = 517;
 
-    public static final int STATE_DISCONNECTED = 0;
-    public static final int STATE_CONNECTED = 1;
-    public static final int STATE_CONNECTING = 2;
-    public static final int STATE_DISCONNECTING = 3;
-    private int mState = STATE_DISCONNECTED;
+    public enum CONNECTION_STATE {
+        DISCONNECTED,
+        CONNECTED,
+        CONNECTING,
+        DISCONNECTING
+    }
+    private CONNECTION_STATE mState = CONNECTION_STATE.DISCONNECTED;
 
     private Context mContext;
     private BluetoothDevice mBluetoothDevice;
@@ -85,22 +84,22 @@ public class PeerDevice {
     }
 
     public boolean isConnected() {
-        return getState() == STATE_CONNECTED;
+        return getState() == CONNECTION_STATE.CONNECTED;
     }
 
     public boolean isDisconnected() {
-        return getState() == STATE_DISCONNECTED;
+        return getState() == CONNECTION_STATE.DISCONNECTED;
     }
 
     // setters and getters are accessed by the DeviceManager thread et this thread so we need to
     // synchronize them.
-    public void setState(int state) {
+    public void setState(CONNECTION_STATE state) {
         synchronized (mLockState) {
             mState = state;
         }
     }
 
-    public int getState() {
+    public CONNECTION_STATE getState() {
         synchronized (mLockState) {
             return mState;
         }
@@ -191,7 +190,7 @@ public class PeerDevice {
     public void close() {
         if (isConnected()) {
             getBluetoothGatt().close();
-            setState(STATE_DISCONNECTING);
+            setState(CONNECTION_STATE.DISCONNECTING);
         }
     }
 
@@ -274,16 +273,16 @@ public class PeerDevice {
                     Log.d(TAG, "onConnectionStateChange() called by device " + gatt.getDevice().getAddress());
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): connected");
-                        setState(STATE_CONNECTED);
+                        setState(CONNECTION_STATE.CONNECTED);
                         gatt.requestMtu(REQUEST_MTU);
                         //gatt.discoverServices();
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d(TAG, "onConnectionStateChange(): disconnected");
-                        setState(STATE_DISCONNECTED);
+                        setState(CONNECTION_STATE.DISCONNECTED);
                         setBluetoothGatt(null);
                     } else {
                         Log.e(TAG, "onConnectionStateChange(): unknown state");
-                        setState(STATE_DISCONNECTED);
+                        setState(CONNECTION_STATE.DISCONNECTED);
                         close();
                     }
                 }

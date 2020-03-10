@@ -1,15 +1,11 @@
 package com.example.ble;
 
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.util.Log;
 
 import java.util.List;
@@ -24,7 +20,6 @@ public class Scanner extends ScanCallback {
 
     public Scanner (Context context) {
         mContext = context;
-        mContext.registerReceiver(mBroadcastReceiver, buildIntentFilter());
     }
 
     static ScanSettings BuildScanSettings() {
@@ -37,18 +32,6 @@ public class Scanner extends ScanCallback {
         return new ScanFilter.Builder()
                 .setServiceUuid(GattServer.P_SERVICE_UUID)
                 .build();
-    }
-
-    static IntentFilter buildIntentFilter() {
-        IntentFilter intent = new IntentFilter();
-        intent.addAction(PeerDevice.ACTION_STATE_CONNECTED);
-        intent.addAction(PeerDevice.ACTION_STATE_DISCONNECTED);
-        return intent;
-    }
-
-    @Override
-    protected void finalize() {
-        mContext.unregisterReceiver(mBroadcastReceiver);
     }
 
     @Override
@@ -108,26 +91,8 @@ public class Scanner extends ScanCallback {
         }
         if (peerDevice.isDisconnected()) {
             // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
-            peerDevice.setState(PeerDevice.STATE_CONNECTING);
+            peerDevice.setState(PeerDevice.CONNECTION_STATE.CONNECTING);
             peerDevice.asyncConnectionToDevice();
         }
     }
-
-    private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            String macAddress = intent.getStringExtra(BleDriver.EXTRA_DATA);
-            PeerDevice device;
-            if ((device = DeviceManager.get(macAddress)) == null) {
-                Log.e(TAG, "onReceive error: unknown device");
-                return ;
-            }
-            if (action.equals(PeerDevice.ACTION_STATE_CONNECTED)) {
-                device.setState(BluetoothProfile.STATE_CONNECTED);
-            } else if (action.equals(PeerDevice.ACTION_STATE_DISCONNECTED)) {
-                device.setState(BluetoothProfile.STATE_DISCONNECTED);
-            }
-        }
-    };
 }

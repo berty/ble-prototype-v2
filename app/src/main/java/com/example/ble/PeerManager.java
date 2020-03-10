@@ -1,7 +1,6 @@
 package com.example.ble;
 
 import android.content.Context;
-import android.content.Intent;
 import android.util.Log;
 
 import java.util.HashMap;
@@ -32,19 +31,11 @@ public class PeerManager {
         }
         if (ready && !peer.isAlreadyFound()) {
             peer.setAlreadyFound(true);
-            sendMessage(peerDevice.getPeerID().toString());
+            JavaToGo.HandleFoundPeer(key);
         }
     }
 
     public static synchronized Peer get(String key) {
         return mPeers.get(key);
-    }
-
-    private static void sendMessage(String peerID) {
-        // example of signal
-        Log.d(TAG, "sendMessage() ok: " + peerID);
-        Intent intent = new Intent(BleDriver.ACTION_PEER_FOUND);
-        intent.putExtra(BleDriver.EXTRA_DATA, peerID);
-        mContext.sendBroadcast(intent);
     }
 }

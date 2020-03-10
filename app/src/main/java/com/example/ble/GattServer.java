@@ -57,7 +57,7 @@ public class GattServer {
             Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
             return false;
         }
-        setPeerID(peerID);
+        mPeerID = peerID;
         mGattServerThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -95,17 +95,9 @@ public class GattServer {
         setState(false);
     }
 
-    private void setPeerID(String peerID) {
-        mPeerID = peerID;
-    }
-
-    private String getPeerID() {
-        return mPeerID;
-    }
-
     private boolean setupGattService() {
         Log.d(TAG, "setupGattService() called");
-        mPeerIDCharacteristic.setValue(getPeerID());
+        mPeerIDCharacteristic.setValue(mPeerID);
         if (!mService.addCharacteristic(mPeerIDCharacteristic)
                 || !mService.addCharacteristic(mWriterCharacteristic)) {
             Log.e(TAG, "setupService() failed: can't add characteristics to service");

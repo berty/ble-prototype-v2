@@ -64,7 +64,7 @@ public class GattServerCallback extends BluetoothGattServerCallback {
                 DeviceManager.addDevice(peerDevice);
             }
             if (peerDevice.isDisconnected()) {
-                peerDevice.setState(PeerDevice.STATE_CONNECTING);
+                peerDevice.setState(PeerDevice.CONNECTION_STATE.CONNECTING);
                 // Everything is handled in this method: GATT connection/reconnection and handshake if necessary
                 peerDevice.asyncConnectionToDevice();
             }

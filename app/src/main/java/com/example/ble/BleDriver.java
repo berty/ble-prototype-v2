@@ -57,87 +57,157 @@ public class BleDriver {
     private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
     private static boolean mAdvertising;
 
-    private enum DRIVER_STATE {
-        STOPPED,
-        STARTED
+    private boolean mStateInit = false;
+    private boolean mStateStarted = false;
+
+    private BleDriver() {
+        if (mBleDriver != null) {
+            throw new RuntimeException("Use getInstance() method to get the singleton instance of this class");
+        }
+        init();
     }
 
-    private static final int DRIVER_STATE_NOT_INIT = 0;
-    private static final int DRIVER_STATE_INIT = 1;
-    private static final int DRIVER_STATE_STARTED = 2;
-    private static final int DRIVER_STATE_STOPPED = 3;
-    private int mDriverState = DRIVER_STATE_NOT_INIT;
+    // Get Context by a hacking way.
+    // If it already done, return immediately true.
+    private synchronized boolean initContext() {
+        Log.d(TAG, "initContext() called");
 
-    /*
-    Get Context by a hacking way
-     */
-    public BleDriver() {
-        try {
-            @SuppressLint("PrivateApi")
-            Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
-            Application application = (Application) activityThreadClass.getMethod("currentApplication").invoke(null);
-            mAppContext = application.getApplicationContext();
-        } catch (Exception e) {
-            Log.e(TAG, "constructor: context not found");
-            return ;
+        if (mAppContext == null) {
+            try {
+                @SuppressLint("PrivateApi")
+                Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
+                Application application = (Application) activityThreadClass.getMethod("currentApplication").invoke(null);
+                mAppContext = application.getApplicationContext();
+                Log.d(TAG, "initContext(): context gotten successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "initContext(): context not found");
+                return false;
+            }
         }
-        if ((mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()) == null) {
-            Log.e(TAG, "constructor: bluetooth not supported on this hardware platform");
-            return ;
-        } else {
-            Log.d(TAG, "constructor: bluetooth is supported on this hardware platform");
-        }
-
-        // Setup context dependant objects
-        JavaToGo.setContext(mAppContext);
-        mPeerManager = new PeerManager(mAppContext);
-        mGattServer = new GattServer(mAppContext);
-        mGattServerCallback = new GattServerCallback(mAppContext, mGattServer);
-
-        if ((mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner()) == null) {
-            Log.i(TAG, "BleDriver constructor: scanning mode not supported");
-        }
-        if ((mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser()) == null) {
-            Log.i(TAG, "BleDriver constructor: advertising mode not supported");
-        }
-        // is the right place? Context must not be null!
-        mScanCallback = new Scanner(mAppContext);
-        // Init ok, set driver to the ready state
-        mDriverState = DRIVER_STATE_INIT;
-    }
-
-    public boolean StartBleDriver(String localPeerID) {
-        Log.d(TAG, "StartBleDriver() called in thread " + Thread.currentThread().getName());
-        if ((mDriverState != DRIVER_STATE_INIT) && (mDriverState != DRIVER_STATE_STOPPED)) {
-            Log.e(TAG, "StartBleDriver(): BLE driver isn't init so it can't be started");
-        }
-        if (mDriverState == DRIVER_STATE_STARTED) {
-            Log.d(TAG, "StartBleDriver(): driver is already on");
-            return false;
-        }
-        if (mBluetoothAdapter == null) {
-            Log.d(TAG, "StartBleDriver(): no bluetooth adapter found");
-            return false;
-        }
-        if (!mBluetoothAdapter.isEnabled()) {
-            Log.d(TAG, "StartBleDriver(): device's bluetooth module is disabled");
-            return false;
-        }
-        if (!mGattServer.start(localPeerID, mGattServerCallback)) {
-            Log.e(TAG, "StartBleDriver() error: setup Gatt server");
-            return false;
-        }
-        mAppContext.registerReceiver(mBroadcastReceiver, makeIntentFilter());
-        //setAdvertising(true);
-        //setScanning(true);
-        mDriverState = DRIVER_STATE_STARTED;
-        Log.d(TAG, "StartBleDriver: init completed");
         return true;
     }
 
+    // Get BluetoothAdapter object and test if bluetooth is enabled.
+    // If it already done, return immediately true.
+    private synchronized boolean initBluetoothAdapter() {
+        Log.d(TAG, "initBluetoothAdapter() called");
+
+        if (mBluetoothAdapter == null) {
+            if ((mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()) == null) {
+                Log.e(TAG, "initBluetoothAdapter(): bluetooth is not supported on this hardware platform");
+                return false;
+            } else {
+                Log.d(TAG, "initBluetoothAdapter(): bluetooth is supported on this hardware platform");
+            }
+        } else if (!mBluetoothAdapter.isEnabled()) {
+            Log.e(TAG, "initBluetoothAdapter(): bluetooth is not enabled");
+            return false;
+        }
+        return true;
+    }
+
+    // Get BluetoothLeScanner object.
+    // If it already done, return immediately true.
+    private synchronized boolean initScanner() {
+        Log.d(TAG, "initScanner() called");
+
+        if (mBluetoothLeScanner == null) {
+            if ((mBluetoothAdapter == null)
+                    || (mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner()) == null) {
+                Log.i(TAG, "initScanner(): hardware scanning initialization failed");
+                return false;
+            } else {
+                Log.d(TAG, "initScanner(): hardware scanning initialization done");
+                try {
+                    mScanCallback = new Scanner(mAppContext);
+                } catch (NullPointerException e) {
+                    Log.e(TAG, "initScanner() error: Scanner object allocation failed");
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // Get BluetoothLeAdvertiser object.
+    // If it already done, return immediately true.
+    private synchronized boolean initAdvertiser() {
+        Log.d(TAG, "initAdvertiser() called");
+
+        if (mBluetoothLeAdvertiser == null) {
+            if ((mBluetoothAdapter == null)
+                    || (mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser()) == null) {
+                Log.i(TAG, "BleDriver constructor: hardware advertising initialization failed");
+                return false;
+            } else {
+                Log.d(TAG, "BleDriver constructor: hardware advertising initialization done");
+            }
+        }
+        return true;
+    }
+
+    // main initialization method
+    private synchronized boolean init() {
+        mStateInit = false;
+        if ((mAppContext != null) || initContext()) {
+            mStateInit = true;
+            if ((mBluetoothAdapter != null) || (mStateInit = initBluetoothAdapter())) {
+                if (mBluetoothLeScanner == null) {
+                    initScanner();
+                }
+                if (mBluetoothLeAdvertiser == null) {
+                    initAdvertiser();
+                }
+
+                // Setup context dependant objects
+                JavaToGo.setContext(mAppContext);
+                try {
+                    mPeerManager = new PeerManager(mAppContext);
+                    mGattServer = new GattServer(mAppContext);
+                    mGattServerCallback = new GattServerCallback(mAppContext, mGattServer);
+                } catch (NullPointerException e) {
+                    Log.e(TAG, "init(): object creation failed. Not enough memory?");
+                    mStateInit = false;
+                }
+            }
+        }
+        return (mStateInit);
+    }
+
+    // Singleton method
+    public static BleDriver getInstance() {
+        if (mBleDriver == null) {
+            synchronized (BleDriver.class) {
+                if (mBleDriver == null) mBleDriver = new BleDriver();
+            }
+        }
+        return mBleDriver;
+    }
+
+    public boolean StartBleDriver(String localPeerID) {
+        Log.d(TAG, "StartBleDriver() called");
+
+        if (mStateStarted) {
+            Log.i(TAG, "StartBleDriver(): BLE driver is already on");
+            return true;
+        }
+        mStateStarted = false;
+        if (mStateInit || init()) {
+            if (!mGattServer.start(localPeerID, mGattServerCallback)) {
+               return (mStateStarted = false);
+            }
+            mAppContext.registerReceiver(mBroadcastReceiver, makeIntentFilter());
+            //setAdvertising(true);
+            //setScanning(true);
+            Log.d(TAG, "StartBleDriver: init completed");
+            mStateStarted = true;
+        }
+        return mStateStarted;
+    }
+
     public void StopBleDriver() {
-        if (mDriverState != DRIVER_STATE_STARTED) {
-            Log.d(TAG, "driver isn't started");
+        if (!mStateStarted) {
+            Log.d(TAG, "driver is not started");
             return ;
         }
         mAppContext.unregisterReceiver(mBroadcastReceiver);
@@ -145,7 +215,7 @@ public class BleDriver {
         setScanning(false);
         DeviceManager.closeAllDeviceConnections();
         mGattServer.stop();
-        mDriverState = DRIVER_STATE_STOPPED;
+        mStateStarted = false;
     }
 
     // Method only for test purposes

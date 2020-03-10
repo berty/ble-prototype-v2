@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private ScanListAdapter scanListAdapter;
     private Handler handler;
     private AdapterView.OnItemClickListener messageClickHandler;
-    private BleDriver bleDriver = new BleDriver();
+    private BleDriver bleDriver = BleDriver.getInstance();
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {

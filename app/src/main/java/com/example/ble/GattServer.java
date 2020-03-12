@@ -37,57 +37,63 @@ public class GattServer {
     private Context mContext;
     private BluetoothGattServer mBluetoothGattServer;
     private Thread mGattServerThread;
-    private boolean mState;
+    private boolean mStateInit = false;
+    private boolean mStateStarted = false;
     private String mPeerID;
 
     public GattServer(Context context) {
         mContext = context;
+        setupGattService();
     }
 
-    // After adding a new service, the success of this operation will be given to the callback
+        // After adding a new service, the success of this operation will be given to the callback
     // BluetoothGattServerCallback#onServiceAdded. It's only after this callback that the server
     // will be ready.
-    public boolean start(final String peerID, final GattServerCallback gattServerCallback) {
+    public synchronized boolean start(final String peerID, final GattServerCallback gattServerCallback) {
         Log.d(TAG, "setupGattServer() called in thread " + Thread.currentThread().getName());
         final BluetoothManager bluetoothManager;
 
-        if (mBluetoothGattServer != null)
-            return (true);
+        if (!mStateInit) {
+            Log.e(TAG, "start error: service not init");
+            return false;
+        }
+        if (mStateStarted) {
+            return true;
+        }
         if ((bluetoothManager = (BluetoothManager)mContext.getSystemService(BLUETOOTH_SERVICE)) == null) {
             Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
             return false;
         }
         mPeerID = peerID;
-        mGattServerThread = new Thread(new Runnable() {
+        /*mGattServerThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                mBluetoothGattServer = bluetoothManager.openGattServer(mContext, gattServerCallback);
-                if (!setupGattService()) {
-                    return ;
-                }
-                if (!mBluetoothGattServer.addService(mService)) {
-                    Log.e(TAG, "setupGattServer() error: cannot add a new service");
-                    mBluetoothGattServer = null;
-                }
             }
         });
-        mGattServerThread.start();
+        mGattServerThread.start();*/
+        mBluetoothGattServer = bluetoothManager.openGattServer(mContext, gattServerCallback);
+        mPeerIDCharacteristic.setValue(mPeerID);
+        mWriterCharacteristic.setValue("");
+        if (!mBluetoothGattServer.addService(mService)) {
+            Log.e(TAG, "setupGattServer() error: cannot add a new service");
+            mBluetoothGattServer = null;
+        }
         return true;
     }
 
-    public BluetoothGattServer getGattServer() {
+    public synchronized BluetoothGattServer getGattServer() {
         return mBluetoothGattServer;
     }
 
-    public void setState(boolean state) {
-        mState = state;
+    public synchronized void setState(boolean state) {
+        mStateStarted = state;
     }
 
-    public boolean isRun() {
-        return mState == true;
+    public synchronized boolean getState() {
+        return mStateStarted;
     }
 
-    public void stop() {
+    public synchronized void stop() {
         if (mBluetoothGattServer != null) {
             mBluetoothGattServer.close();
             mBluetoothGattServer = null;
@@ -95,15 +101,14 @@ public class GattServer {
         setState(false);
     }
 
-    private boolean setupGattService() {
+    private void setupGattService() {
         Log.d(TAG, "setupGattService() called");
-        mPeerIDCharacteristic.setValue(mPeerID);
         if (!mService.addCharacteristic(mPeerIDCharacteristic)
                 || !mService.addCharacteristic(mWriterCharacteristic)) {
             Log.e(TAG, "setupService() failed: can't add characteristics to service");
-            return false;
+            mStateInit = false;
         }
-        return true;
+        mStateInit = true;
     }
 
 }

@@ -5,9 +5,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -17,15 +15,11 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Message;
-import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,19 +39,19 @@ public class MainActivity extends AppCompatActivity {
     private int[] permissionsRequestCode = { BLUETOOTH, BLUETOOTH_ADMIN, ACCESS_FINE_LOCATION };
     private boolean permissions[] = {false, false, false};
     private BluetoothAdapter bluetoothAdapter;
-    private ArrayList<String> devices;
     private ListView scanList;
     private ScanListAdapter scanListAdapter;
     private Handler handler;
     private AdapterView.OnItemClickListener messageClickHandler;
     private BleDriver bleDriver = BleDriver.getInstance();
+
+    // interface where received data are put
+    public static ArrayList<String> dataArray = new ArrayList<>();
+
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            String peerID = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA_PID);
-            String data = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA);
-            addScanEntry(action + ": " + peerID + ": data: " + data);
+            scanListAdapter.notifyDataSetChanged();
         }
     };
 
@@ -85,10 +79,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Thread.currentThread().setName("mainThread");
 
-        devices = new ArrayList<>();
         scanList = findViewById(R.id.scan_listView);
         scanListAdapter = new ScanListAdapter(this,
-                android.R.layout.simple_list_item_1 , devices);
+                android.R.layout.simple_list_item_1 , dataArray);
         scanList.setAdapter(scanListAdapter);
 
 
@@ -134,8 +127,7 @@ public class MainActivity extends AppCompatActivity {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, ENABLE_BT_REQUEST);
         }
-        IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_FOUND_PEER);
-        filter.addAction(JavaToGo.INTERFACE_RECEIVE_FROM_PEER);
+        IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_UPDATE_DATA);
         getApplicationContext().registerReceiver(mBroadcastReceiver, filter);
     }
 
@@ -208,8 +200,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void addScanEntry(String device) {
-        devices.add(device);
-        scanListAdapter.notifyDataSetChanged();
+    private void addDataEntry(String device) {
+        dataArray.add(device);
     }
 }

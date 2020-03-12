@@ -164,7 +164,7 @@ public class BleDriver {
                     mGattServer = new GattServer(mAppContext);
                     mGattServerCallback = new GattServerCallback(mAppContext, mGattServer);
                 } catch (NullPointerException e) {
-                    Log.e(TAG, "init(): object creation failed. Not enough memory?");
+                    Log.e(TAG, "init(): object creation failed");
                     mStateInit = false;
                 }
             }

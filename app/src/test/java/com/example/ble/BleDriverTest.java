@@ -11,14 +11,6 @@ import static org.junit.Assert.*;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 public class BleDriverTest {
-    BleDriver mBleDriver;
-
-    @Before
-    public void createBleInstance() {
-        mBleDriver = BleDriver.getInstance();
-        assertNotNull(mBleDriver);
-    }
-
     @Test
     public void bleDriver_isSetup() {
         assertEquals(4, 2 + 2);

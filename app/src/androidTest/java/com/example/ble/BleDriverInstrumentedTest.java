@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -30,19 +31,10 @@ public class BleDriverInstrumentedTest {
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            String peerID = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA_PID);
-            String data = intent.getStringExtra(JavaToGo.INTERFACE_EXTRA_DATA);
-            if (action == JavaToGo.INTERFACE_FOUND_PEER) {
-                assertNotNull(peerID);
-                assertEquals(true, BleDriver.SendToPeer(peerID, HELLO_WORLD.getBytes()));
-            } else if (action == JavaToGo.INTERFACE_RECEIVE_FROM_PEER) {
-                assertNotNull(peerID);
-                assertNotNull(data);
-                assertEquals(new StringBuilder(HELLO_WORLD).reverse(), data);
-            } else {
-                fail("Intent not recognized");
-            }
+            System.out.println("onReceive");
+            assertNotNull(MainActivity.dataArray.get(0));
+                //assertEquals(new StringBuilder(HELLO_WORLD).reverse(), data);
+            System.out.println("data: " + MainActivity.dataArray.get(0));
         }
     };
 
@@ -51,13 +43,13 @@ public class BleDriverInstrumentedTest {
         mBleDriver = BleDriver.getInstance();
         assertNotNull(mBleDriver);
 
-        IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_FOUND_PEER);
-        filter.addAction(JavaToGo.INTERFACE_RECEIVE_FROM_PEER);
+        IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_UPDATE_DATA);
         InstrumentationRegistry.getInstrumentation().getTargetContext().registerReceiver(mBroadcastReceiver, filter);
     }
 
     @Test
     public void bleDriver_isSetup() {
+        System.out.println("hello");
         // Context of the app under test.
         //Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
@@ -70,5 +62,10 @@ public class BleDriverInstrumentedTest {
 
         // enable scanning devices
         mBleDriver.StartScanning();
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+
+        }
     }
 }

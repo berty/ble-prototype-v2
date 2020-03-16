@@ -47,7 +47,7 @@ public class GattServerCallback extends BluetoothGattServerCallback {
             mGattServer.stop();
         }
         // Set the status server state to true (enabled)
-        mGattServer.setState(true);
+        mGattServer.setState(GattServer.State.STARTED);
     }
 
     @Override

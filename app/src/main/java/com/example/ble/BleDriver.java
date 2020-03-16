@@ -251,7 +251,7 @@ public class BleDriver {
     // Android only provides a way to know if startScan has failed so we set the scanning state
     // to true and ScanCallback will set it to false in case of failure.
     private void setScanning(boolean enable) {
-        if (mBluetoothLeScanner == null) {
+        if ((mBluetoothLeScanner == null) || (mGattServer.getState() != GattServer.State.STARTED)) {
             Log.d(TAG, "setScanning(): abort");
             return ;
         }

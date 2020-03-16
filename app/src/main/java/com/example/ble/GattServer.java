@@ -27,18 +27,20 @@ public class GattServer {
     static final ParcelUuid P_SERVICE_UUID = new ParcelUuid(SERVICE_UUID);
 
     // GATT service objects
-    private final BluetoothGattService mService =
-            new BluetoothGattService(SERVICE_UUID, SERVICE_TYPE_PRIMARY);
-    private final BluetoothGattCharacteristic mPeerIDCharacteristic =
-            new BluetoothGattCharacteristic(PEER_ID_UUID, PROPERTY_READ, PERMISSION_READ);
-    private final BluetoothGattCharacteristic mWriterCharacteristic =
-            new BluetoothGattCharacteristic(WRITER_UUID, PROPERTY_WRITE, PERMISSION_WRITE);
+    private BluetoothGattService mService;
+    private BluetoothGattCharacteristic mPeerIDCharacteristic;
+    private BluetoothGattCharacteristic mWriterCharacteristic;
 
     private Context mContext;
     private BluetoothGattServer mBluetoothGattServer;
     private Thread mGattServerThread;
-    private boolean mStateInit = false;
-    private boolean mStateStarted = false;
+    private boolean mInit = false;
+    enum State {
+        STOPPED,
+        STARTING,
+        STARTED
+    }
+    private volatile State mState = State.STOPPED;
     private String mPeerID;
 
     public GattServer(Context context) {
@@ -53,31 +55,33 @@ public class GattServer {
         Log.d(TAG, "setupGattServer() called in thread " + Thread.currentThread().getName());
         final BluetoothManager bluetoothManager;
 
-        if (!mStateInit) {
-            Log.e(TAG, "start error: service not init");
+        if (!mInit) {
+            Log.e(TAG, "start error: can't start the GATT server");
             return false;
         }
-        if (mStateStarted) {
+        if (mState != State.STOPPED) {
+            Log.i(TAG, "start(): the GATT server is not stopped");
             return true;
         }
+        setState(State.STARTING);
         if ((bluetoothManager = (BluetoothManager)mContext.getSystemService(BLUETOOTH_SERVICE)) == null) {
             Log.e(TAG, "setupGattServer(): cannot get the bluetoothManager");
             return false;
         }
         mPeerID = peerID;
-        /*mGattServerThread = new Thread(new Runnable() {
+        mGattServerThread = new Thread(new Runnable() {
             @Override
             public void run() {
+                mBluetoothGattServer = bluetoothManager.openGattServer(mContext, gattServerCallback);
+                mPeerIDCharacteristic.setValue(mPeerID);
+                mWriterCharacteristic.setValue("");
+                if (!mBluetoothGattServer.addService(mService)) {
+                    Log.e(TAG, "setupGattServer() error: cannot add a new service");
+                    mBluetoothGattServer = null;
+                }
             }
         });
-        mGattServerThread.start();*/
-        mBluetoothGattServer = bluetoothManager.openGattServer(mContext, gattServerCallback);
-        mPeerIDCharacteristic.setValue(mPeerID);
-        mWriterCharacteristic.setValue("");
-        if (!mBluetoothGattServer.addService(mService)) {
-            Log.e(TAG, "setupGattServer() error: cannot add a new service");
-            mBluetoothGattServer = null;
-        }
+        mGattServerThread.start();
         return true;
     }
 
@@ -85,30 +89,35 @@ public class GattServer {
         return mBluetoothGattServer;
     }
 
-    public synchronized void setState(boolean state) {
-        mStateStarted = state;
+    public synchronized void setState(State state) {
+        mState = state;
     }
 
-    public synchronized boolean getState() {
-        return mStateStarted;
+    public synchronized State getState() {
+        return mState;
     }
 
     public synchronized void stop() {
-        if (mBluetoothGattServer != null) {
+        Log.d(TAG, "stop() called");
+        if (mState == State.STARTED) {
+            Log.d(TAG, "stop(): stopping server");
             mBluetoothGattServer.close();
             mBluetoothGattServer = null;
+            setState(State.STOPPED);
         }
-        setState(false);
     }
 
     private void setupGattService() {
         Log.d(TAG, "setupGattService() called");
+        mService = new BluetoothGattService(SERVICE_UUID, SERVICE_TYPE_PRIMARY);
+        mPeerIDCharacteristic = new BluetoothGattCharacteristic(PEER_ID_UUID, PROPERTY_READ, PERMISSION_READ);
+        mWriterCharacteristic = new BluetoothGattCharacteristic(WRITER_UUID, PROPERTY_WRITE, PERMISSION_WRITE);
         if (!mService.addCharacteristic(mPeerIDCharacteristic)
                 || !mService.addCharacteristic(mWriterCharacteristic)) {
             Log.e(TAG, "setupService() failed: can't add characteristics to service");
-            mStateInit = false;
+            mInit = false;
         }
-        mStateInit = true;
+        mInit = true;
     }
 
 }

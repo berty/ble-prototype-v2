@@ -38,6 +38,8 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         mBuffer = tmp;
     }
 
+    // When this callback is called, we assume that the GATT server is ready up.
+    // We can enable scanner and advertiser.
     @Override
     public void onServiceAdded(int status, BluetoothGattService service) {
         Log.d(TAG, "onServiceAdded() called in thread " + Thread.currentThread().getName());
@@ -48,6 +50,8 @@ public class GattServerCallback extends BluetoothGattServerCallback {
         }
         // Set the status server state to true (enabled)
         mGattServer.setState(GattServer.State.STARTED);
+        BleDriver.setAdvertising(true);
+        BleDriver.setScanning(true);
     }
 
     @Override

@@ -26,36 +26,33 @@ public class BleDriver {
 
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
 
-    private Context mAppContext;
-    private BluetoothAdapter mBluetoothAdapter;
-
-    //private final DeviceManager mDeviceManager = new DeviceManager();
-    private PeerManager mPeerManager;
+    private static Context mAppContext;
+    private static BluetoothAdapter mBluetoothAdapter;
 
     // GATT server
-    private GattServer mGattServer;
-    private GattServerCallback mGattServerCallback;
+    private static GattServer mGattServer;
+    private static GattServerCallback mGattServerCallback;
 
     // Scanning
     // API level 21
     // Scanner is the implementation of the ScanCallback abstract class
-    private ScanFilter mScanFilter;
-    private ScanSettings mScanSettings;
-    private Scanner mScanCallback;
-    private BluetoothLeScanner mBluetoothLeScanner;
+    private static ScanFilter mScanFilter;
+    private static ScanSettings mScanSettings;
+    private static Scanner mScanCallback;
+    private static BluetoothLeScanner mBluetoothLeScanner;
     private static boolean mScanning;
 
     // Advertising
     // API level 21
     // Advertiser is the implementation of the AdvertiseCallback abstract class
-    private AdvertiseSettings mAdvertiseSettings;
-    private AdvertiseData mAdvertiseData;
-    private Advertiser mAdvertiseCallback = new Advertiser();
-    private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
+    private static AdvertiseSettings mAdvertiseSettings;
+    private static AdvertiseData mAdvertiseData;
+    private static Advertiser mAdvertiseCallback;
+    private static BluetoothLeAdvertiser mBluetoothLeAdvertiser;
     private static boolean mAdvertising;
 
-    private boolean mStateInit = false;
-    private boolean mStateStarted = false;
+    private static boolean mStateInit = false;
+    private static boolean mStateStarted = false;
 
     private BleDriver() {
         if (mBleDriver != null) {
@@ -65,7 +62,7 @@ public class BleDriver {
 
     // Get Context by a hacking way.
     // If it already done, return immediately true.
-    private synchronized boolean initContext() {
+    private static synchronized boolean initContext() {
         Log.d(TAG, "initContext() called");
 
         if (mAppContext == null) {
@@ -85,7 +82,7 @@ public class BleDriver {
 
     // Get BluetoothAdapter object and test if bluetooth is enabled.
     // If it already done, return immediately true.
-    private synchronized boolean initBluetoothAdapter() {
+    private static synchronized boolean initBluetoothAdapter() {
         Log.d(TAG, "initBluetoothAdapter() called");
 
         if (mBluetoothAdapter == null) {
@@ -104,7 +101,7 @@ public class BleDriver {
 
     // Get BluetoothLeScanner object.
     // If it already done, return immediately true.
-    private synchronized boolean initScanner() {
+    private static synchronized boolean initScanner() {
         Log.d(TAG, "initScanner() called");
 
         if (mBluetoothLeScanner == null) {
@@ -116,6 +113,8 @@ public class BleDriver {
                 Log.d(TAG, "initScanner(): hardware scanning initialization done");
                 try {
                     mScanCallback = new Scanner(mAppContext);
+                    mScanFilter = Scanner.buildScanFilter();
+                    mScanSettings = Scanner.BuildScanSettings();
                 } catch (NullPointerException e) {
                     Log.e(TAG, "initScanner() error: Scanner object allocation failed");
                     return false;
@@ -127,7 +126,7 @@ public class BleDriver {
 
     // Get BluetoothLeAdvertiser object.
     // If it already done, return immediately true.
-    private synchronized boolean initAdvertiser() {
+    private static synchronized boolean initAdvertiser() {
         Log.d(TAG, "initAdvertiser() called");
 
         if (mBluetoothLeAdvertiser == null) {
@@ -136,6 +135,9 @@ public class BleDriver {
                 Log.i(TAG, "BleDriver constructor: hardware advertising initialization failed");
                 return false;
             } else {
+                mAdvertiseCallback = new Advertiser();
+                mAdvertiseSettings = Advertiser.buildAdvertiseSettings();
+                mAdvertiseData = Advertiser.buildAdvertiseData();
                 Log.d(TAG, "BleDriver constructor: hardware advertising initialization done");
             }
         }
@@ -143,7 +145,7 @@ public class BleDriver {
     }
 
     // main initialization method
-    private synchronized boolean init() {
+    private static synchronized boolean init() {
         mStateInit = false;
         if ((mAppContext != null) || initContext()) {
             mStateInit = true;
@@ -158,7 +160,7 @@ public class BleDriver {
                 // Setup context dependant objects
                 JavaToGo.setContext(mAppContext);
                 try {
-                    mPeerManager = new PeerManager(mAppContext);
+                    PeerManager.setContext(mAppContext);
                     mGattServer = new GattServer(mAppContext);
                     mGattServerCallback = new GattServerCallback(mAppContext, mGattServer);
                 } catch (NullPointerException e) {
@@ -180,7 +182,11 @@ public class BleDriver {
         return mBleDriver;
     }
 
-    public boolean StartBleDriver(String localPeerID) {
+    public static boolean isStarted() {
+        return mStateStarted;
+    }
+
+    public static boolean StartBleDriver(String localPeerID) {
         Log.d(TAG, "StartBleDriver() called");
 
         if (mStateStarted) {
@@ -198,7 +204,7 @@ public class BleDriver {
         return mStateStarted;
     }
 
-    public void StopBleDriver() {
+    public static void StopBleDriver() {
         if (!mStateStarted) {
             Log.d(TAG, "driver is not started");
             return ;
@@ -210,53 +216,16 @@ public class BleDriver {
         mStateStarted = false;
     }
 
-    // Method only for test purposes
-    public void StartScanning() {
-        if (mScanning) {
-            Log.d(TAG, "scanning is already on");
-            return ;
-        }
-        setScanning(true);
-    }
-
-    // Method only for test purposes
-    public void StopScanning() {
-        if (!mScanning) {
-            Log.d(TAG, "scanning is already off");
-            return ;
-        }
-        setScanning(false);
-    }
-
-    // Method only for test purposes
-    public void StartAdvertising() {
-        if (mAdvertising) {
-            Log.d(TAG, "advertising already on");
-            return ;
-        }
-        setAdvertising(true);
-    }
-
-    // Method only for test purposes
-    public void StopAdvertising() {
-        if (!mAdvertising) {
-            Log.d(TAG, "advertising already off");
-            return ;
-        }
-        setAdvertising(false);
-    }
-
+    // Interface to enable scanning
     // Android only provides a way to know if startScan has failed so we set the scanning state
     // to true and ScanCallback will set it to false in case of failure.
-    private void setScanning(boolean enable) {
+    public static void setScanning(boolean enable) {
         if ((mBluetoothLeScanner == null) || (mGattServer.getState() != GattServer.State.STARTED)) {
             Log.d(TAG, "setScanning(): abort");
             return ;
         }
         if (enable && !getScanningState()) {
             Log.d(TAG, "setScanning(): enabled");
-            mScanFilter = Scanner.buildScanFilter();
-            mScanSettings = Scanner.BuildScanSettings();
             mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanCallback);
             setScanningState(true);
         } else if (!enable && getScanningState()) {
@@ -277,15 +246,14 @@ public class BleDriver {
         return mScanning;
     }
 
-    private void setAdvertising(boolean enable) {
+    // Interface to enable scanning
+    public static void setAdvertising(boolean enable) {
         if (mBluetoothLeAdvertiser == null) {
             Log.d(TAG, "setAdvertising(): abort");
             return ;
         }
         if (enable && !getAdvertisingState()) {
             Log.d(TAG, "setAdvertising(): enabled");
-            mAdvertiseSettings = Advertiser.buildAdvertiseSettings();
-            mAdvertiseData = Advertiser.buildAdvertiseData();
             mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiseCallback);
             setAdvertisingState(true);
         } else if (!enable && getAdvertisingState()) {

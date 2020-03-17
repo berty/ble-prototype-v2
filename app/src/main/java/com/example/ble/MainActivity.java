@@ -43,7 +43,6 @@ public class MainActivity extends AppCompatActivity {
     private ScanListAdapter scanListAdapter;
     private Handler handler;
     private AdapterView.OnItemClickListener messageClickHandler;
-    private BleDriver bleDriver = BleDriver.getInstance();
 
     // interface where received data are put
     public static ArrayList<String> dataArray = new ArrayList<>();
@@ -160,12 +159,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void driverOn(final View view) {
-        if (!bleDriver.StartBleDriver(UUID.randomUUID().toString()))
+        if (!BleDriver.StartBleDriver(UUID.randomUUID().toString()))
             Log.e(TAG, "bleScanStart: failed to start ble");
     }
 
     public void driverOff(final View view) {
-        bleDriver.StopBleDriver();
+        BleDriver.StopBleDriver();
     }
 
     public void scanOn(final View view) {
@@ -175,22 +174,22 @@ public class MainActivity extends AppCompatActivity {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                bleDriver.StopScanning();
+                BleDriver.setScanning(false);
             }
         }, SCAN_PERIOD);
-        bleDriver.StartScanning();
+        BleDriver.setScanning(true);
     }
 
     public void scanOff(View view) {
-        bleDriver.StopScanning();
+        BleDriver.setScanning(false);
     }
 
     public void advertiseOn(View view) {
-        bleDriver.StartAdvertising();
+        BleDriver.setAdvertising(true);
     }
 
     public void advertiseOff(View view) {
-        bleDriver.StopAdvertising();
+        BleDriver.setAdvertising(false);
     }
 
     @Override

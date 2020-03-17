@@ -11,7 +11,7 @@ public class PeerManager {
     private static HashMap<String, Peer> mPeers = new HashMap<>();
     private static Context mContext;
 
-    public PeerManager(Context context) {
+    public static void setContext(Context context) {
         mContext = context;
     }
 

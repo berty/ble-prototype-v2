@@ -23,12 +23,16 @@ import static org.junit.Assert.*;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 @RunWith(AndroidJUnit4.class)
-public class BleDriverInstrumentedTest {
+public class HandleFoundPeerTest {
     private static final String HELLO_WORLD = "Hello World!";
+
+    public static final int WAIT_FOR_GATT_SERVER_STARTING = 1000;
+    public static final int WAIT_FOR_SCANNING = 5000;
+
     private BleDriver mBleDriver;
     private String peerID;
 
-    private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+    /*private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             System.out.println("onReceive");
@@ -36,15 +40,22 @@ public class BleDriverInstrumentedTest {
                 //assertEquals(new StringBuilder(HELLO_WORLD).reverse(), data);
             System.out.println("data: " + MainActivity.dataArray.get(0));
         }
-    };
+    };*/
 
+    private void mSleep(int time) {
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            fail("sleep failed");
+        }
+    }
     @Before
     public void createBleInstance() {
         mBleDriver = BleDriver.getInstance();
         assertNotNull(mBleDriver);
 
-        IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_UPDATE_DATA);
-        InstrumentationRegistry.getInstrumentation().getTargetContext().registerReceiver(mBroadcastReceiver, filter);
+        /*IntentFilter filter = new IntentFilter(JavaToGo.INTERFACE_UPDATE_DATA);
+        InstrumentationRegistry.getInstrumentation().getTargetContext().registerReceiver(mBroadcastReceiver, filter);*/
     }
 
     @Test
@@ -57,28 +68,16 @@ public class BleDriverInstrumentedTest {
         for (int i = 0; i < 3; i++) {
             mBleDriver.StopBleDriver();
             peerID = UUID.randomUUID().toString();
-            /*try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-            }*/
             assertEquals(true, mBleDriver.StartBleDriver(peerID));
-            /*try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-            }*/
         }
-
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-
-        }
+        // Wait that the GATT server is started
+        mSleep(WAIT_FOR_GATT_SERVER_STARTING);
         // enable scanning devices
         mBleDriver.StartScanning();
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-
-        }
+        // Wait that scanning is finished
+        mSleep(WAIT_FOR_SCANNING);
+        assertNotNull(MainActivity.dataArray.get(0));
+        //assertEquals(new StringBuilder(HELLO_WORLD).reverse(), data);
+        System.out.println("data: " + MainActivity.dataArray.get(0));
     }
 }

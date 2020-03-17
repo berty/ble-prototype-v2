@@ -25,7 +25,6 @@ public class BleDriver {
     private static volatile BleDriver mBleDriver;
 
     static final String ACTION_PEER_FOUND = "BleDriver.ACTION_PEER_FOUND";
-    static final String EXTRA_DATA = "BleDriver.EXTRA_DATA";
 
     private Context mAppContext;
     private BluetoothAdapter mBluetoothAdapter;
@@ -40,8 +39,8 @@ public class BleDriver {
     // Scanning
     // API level 21
     // Scanner is the implementation of the ScanCallback abstract class
-    private ScanFilter mScanFilter = Scanner.buildScanFilter();
-    private ScanSettings mScanSettings = Scanner.BuildScanSettings();
+    private ScanFilter mScanFilter;
+    private ScanSettings mScanSettings;
     private Scanner mScanCallback;
     private BluetoothLeScanner mBluetoothLeScanner;
     private static boolean mScanning;
@@ -49,8 +48,8 @@ public class BleDriver {
     // Advertising
     // API level 21
     // Advertiser is the implementation of the AdvertiseCallback abstract class
-    private AdvertiseSettings mAdvertiseSettings = Advertiser.buildAdvertiseSettings();
-    private AdvertiseData mAdvertiseData = Advertiser.buildAdvertiseData();
+    private AdvertiseSettings mAdvertiseSettings;
+    private AdvertiseData mAdvertiseData;
     private Advertiser mAdvertiseCallback = new Advertiser();
     private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
     private static boolean mAdvertising;
@@ -62,7 +61,6 @@ public class BleDriver {
         if (mBleDriver != null) {
             throw new RuntimeException("Use getInstance() method to get the singleton instance of this class");
         }
-        init();
     }
 
     // Get Context by a hacking way.
@@ -257,6 +255,8 @@ public class BleDriver {
         }
         if (enable && !getScanningState()) {
             Log.d(TAG, "setScanning(): enabled");
+            mScanFilter = Scanner.buildScanFilter();
+            mScanSettings = Scanner.BuildScanSettings();
             mBluetoothLeScanner.startScan(Collections.singletonList(mScanFilter), mScanSettings, mScanCallback);
             setScanningState(true);
         } else if (!enable && getScanningState()) {
@@ -284,6 +284,8 @@ public class BleDriver {
         }
         if (enable && !getAdvertisingState()) {
             Log.d(TAG, "setAdvertising(): enabled");
+            mAdvertiseSettings = Advertiser.buildAdvertiseSettings();
+            mAdvertiseData = Advertiser.buildAdvertiseData();
             mBluetoothLeAdvertiser.startAdvertising(mAdvertiseSettings, mAdvertiseData, mAdvertiseCallback);
             setAdvertisingState(true);
         } else if (!enable && getAdvertisingState()) {

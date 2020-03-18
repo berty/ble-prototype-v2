@@ -19,7 +19,7 @@ public class JavaToGo {
         MainActivity.dataArray.add(PEER_ID_PREFIX + peerID);
         sendUpdateSignal();
         //BleDriver.SendToPeer(peerID, "Hello World!!!!!! If this callback is invoked while a reliable write transaction is in progress, the value of the characteristic represents the value reported by the remote device. An application should compare this value to the desired value to be written. If the values don't match, the application must abort the reliable write transaction.".getBytes());
-        //BleDriver.SendToPeer(peerID, "Hello World!!!!!!!ab".getBytes());
+        BleDriver.SendToPeer(peerID, "Hello World!!!!!!!ab".getBytes());
         return true;
     }
 

@@ -15,13 +15,13 @@ public class testUtils {
         }
     }
 
-    public static String parsePeerID(String input) {
+    public static String parse(String input, String prefix) {
         String peerID = null;
         int indexPrefix = 0;
 
         if (input != null) {
-            if ((indexPrefix = input.indexOf(JavaToGo.PEER_ID_PREFIX)) != -1) {
-                peerID = input.substring(indexPrefix + JavaToGo.PEER_ID_PREFIX.length());
+            if ((indexPrefix = input.indexOf(prefix)) != -1) {
+                peerID = input.substring(indexPrefix + prefix.length());
             }
         }
         return peerID;

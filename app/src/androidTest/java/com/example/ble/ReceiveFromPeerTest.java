@@ -12,7 +12,7 @@ public class ReceiveFromPeerTest {
     @Before
     public void init() {
         assertNotNull(BleDriver.StartBleDriver(UUID.randomUUID().toString()));
-        testUtils.mSleep(testUtils.WAIT_FOR_SCANNING);
+        testUtils.mSleep(testUtils.WAIT_FOR_RECEIVE);
         assertNotNull(MainActivity.dataArray.get(0));
         assertNotNull(testUtils.parse(MainActivity.dataArray.get(0), JavaToGo.PEER_ID_PREFIX));
     }

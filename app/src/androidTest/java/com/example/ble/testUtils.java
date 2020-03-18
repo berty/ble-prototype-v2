@@ -6,6 +6,7 @@ public class testUtils {
 
     public static final int WAIT_FOR_GATT_SERVER_STARTING = 1000;
     public static final int WAIT_FOR_SCANNING = 5000;
+    public static final int WAIT_FOR_RECEIVE = 5000;
 
     public static void mSleep(int time) {
         try {

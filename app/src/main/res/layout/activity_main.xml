@@ -7,30 +7,56 @@
     tools:context=".MainActivity">
 
     <Button
-        android:id="@+id/button"
+        android:id="@+id/driverOff_button"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:onClick="bleScanStop"
-        android:text="@string/scan_off_button"
-        app:layout_constraintBaseline_toBaselineOf="@+id/scan_button"
+        android:onClick="driverOff"
+        android:text="@string/driverOff_button"
+        app:layout_constraintBaseline_toBaselineOf="@+id/driverOn_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/scan_button" />
+        app:layout_constraintStart_toEndOf="@+id/driverOn_button" />
 
     <Button
-        android:id="@+id/scan_button"
+        android:id="@+id/driverOn_button"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:onClick="bleScanStart"
-        android:text="@string/scan_button"
-        app:layout_constraintEnd_toStartOf="@+id/button"
+        android:onClick="driverOn"
+        android:text="@string/driverOn_button"
+        app:layout_constraintEnd_toStartOf="@+id/driverOff_button"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/scanOn_button"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:onClick="scanOn"
+        android:text="@string/scanOn_button"
+        app:layout_constraintEnd_toStartOf="@+id/scanOff_button"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/driverOn_button" />
+
+    <Button
+        android:id="@+id/button"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:onClick="advertiseOn"
+        android:text="@string/advertiseOn_button"
+        app:layout_constraintEnd_toStartOf="@+id/button4"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/scanOn_button" />
 
     <ListView
         android:id="@+id/scan_listView"
@@ -43,6 +69,34 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/scan_button" />
+        app:layout_constraintTop_toBottomOf="@+id/button">
+
+    </ListView>
+
+    <Button
+        android:id="@+id/scanOff_button"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:onClick="scanOff"
+        android:text="@string/scanOff_button"
+        app:layout_constraintBaseline_toBaselineOf="@+id/scanOn_button"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/scanOn_button" />
+
+    <Button
+        android:id="@+id/button4"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:onClick="advertiseOff"
+        android:text="@string/advertiseOff_button"
+        app:layout_constraintBaseline_toBaselineOf="@+id/button"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/button" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
